@@ -5,14 +5,18 @@ Java Source Printer turns a zip full of Java projects into syntax-highlighted PD
 ## Features
 - Upload a zip containing multiple top-level project folders.
 - Overview grouped by project, sorted by project then file name.
-- Preview with adjustable font size and color scheme.
+- Preview with adjustable font size, line height, and color scheme.
+- Filters: remove JavaDoc, remove comments, collapse blank lines, hide initComponents, tabs to spaces.
 - Output as a single PDF or a zip of per-project PDFs.
+- Optional headers (project and file name) and footer page numbers.
+- Highlighting via highlight.js with built-in themes: atom-one-light, arduino-light, stackoverflow-light, vs.
 - No files retained on the server (temp files are deleted after each request).
 
 ## Development
 
 ```
 npm install
+npm run playwright:install
 npm run dev
 ```
 
