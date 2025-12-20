@@ -1,0 +1,59 @@
+import { DEFAULT_THEME_ID, getThemeById } from '../shared/themes.js';
+import { clampNumber } from './utils.js';
+
+export const DEFAULT_SETTINGS = {
+  fontSize: 12,
+  lineHeight: 1.5,
+  theme: DEFAULT_THEME_ID,
+  outputMode: 'per-project',
+  highlighter: 'highlightjs',
+  showProjectHeader: true,
+  showFileHeader: true,
+  showPageNumbers: true,
+};
+
+function toStringPayload(payload) {
+  if (typeof payload === 'string') return payload;
+  if (Buffer.isBuffer(payload)) return payload.toString('utf8');
+  if (payload && typeof payload.toString === 'function') return payload.toString();
+  return '';
+}
+
+function toBoolean(value, fallback) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') return true;
+    if (value.toLowerCase() === 'false') return false;
+  }
+  return fallback;
+}
+
+export function parseSettings(payload) {
+  let parsed = {};
+  try {
+    const raw = toStringPayload(payload);
+    parsed = raw ? JSON.parse(raw) : {};
+  } catch (error) {
+    parsed = {};
+  }
+
+  const fontSize = clampNumber(Number(parsed.fontSize), 9, 18, DEFAULT_SETTINGS.fontSize);
+  const lineHeight = clampNumber(Number(parsed.lineHeight), 1.2, 2, DEFAULT_SETTINGS.lineHeight);
+  const theme = getThemeById(parsed.theme).id;
+  const outputMode = parsed.outputMode === 'per-project' ? 'per-project' : 'single';
+  const highlighter = parsed.highlighter === 'highlightjs' ? 'highlightjs' : DEFAULT_SETTINGS.highlighter;
+  const showProjectHeader = toBoolean(parsed.showProjectHeader, DEFAULT_SETTINGS.showProjectHeader);
+  const showFileHeader = toBoolean(parsed.showFileHeader, DEFAULT_SETTINGS.showFileHeader);
+  const showPageNumbers = toBoolean(parsed.showPageNumbers, DEFAULT_SETTINGS.showPageNumbers);
+
+  return {
+    fontSize,
+    lineHeight,
+    theme,
+    outputMode,
+    highlighter,
+    showProjectHeader,
+    showFileHeader,
+    showPageNumbers,
+  };
+}

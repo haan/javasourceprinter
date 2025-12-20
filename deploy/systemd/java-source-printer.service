@@ -1,0 +1,21 @@
+[Unit]
+Description=Java Source Printer backend
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/java/server
+EnvironmentFile=/var/www/java/server/.env
+ExecStart=/usr/bin/node /var/www/java/server/index.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/tmp
+
+[Install]
+WantedBy=multi-user.target

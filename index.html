@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Java Source Printer</title>
+  </head>
+  <body class="bg-base-100 text-base-content">
+    <main id="landing" class="flex min-h-screen items-center justify-center px-6">
+      <div class="flex w-full max-w-xl flex-col items-center gap-6 text-center">
+        <div class="space-y-3">
+          <img src="/logo.png" alt="Java Source Printer" class="mx-auto w-auto" />
+          <p class="text-sm text-base-content/70">Upload a zip file with your Java projects.</p>
+        </div>
+        <div class="flex w-full flex-col items-center gap-2">
+          <input id="zip-input" type="file" accept=".zip" class="file-input file-input-bordered w-full max-w-md" />
+          <p id="landing-meta" class="text-xs text-base-content/60">No file selected.</p>
+        </div>
+        <div class="flex flex-wrap justify-center gap-3">
+          <button id="landing-upload" class="btn btn-primary" disabled>Upload</button>
+          <button id="landing-demo" class="btn btn-outline">Demo</button>
+        </div>
+        <p id="landing-status" class="text-xs text-base-content/60"></p>
+      </div>
+    </main>
+
+    <div id="app" class="hidden min-h-screen">
+      <header class="px-6 pt-6">
+        <div class="mx-auto flex max-w-6xl flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-[0.35em] text-primary">Java Source Printer</p>
+            <h1 class="text-3xl font-semibold tracking-tight">
+              From zip to printable code.
+            </h1>
+          </div>
+          <p class="max-w-sm text-sm text-base-content/70">
+            Files are processed in memory only. Nothing is stored on the server.
+          </p>
+        </div>
+      </header>
+
+      <main class="mx-auto w-full max-w-6xl space-y-6 px-6 pb-10 pt-6">
+        <section class="space-y-6">
+          <div class="rounded-box border border-base-300 bg-base-100 p-5 shadow">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.25em] text-base-content/70">
+                  Uploaded zip
+                </p>
+                <p id="zip-meta" class="text-xs text-base-content/60">No file selected.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <input id="zip-input-app" type="file" accept=".zip" class="hidden" />
+                <button id="change-zip" class="btn btn-xs btn-outline">Change</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-box border border-base-300 bg-base-100 p-5 shadow">
+            <div class="flex items-center justify-between">
+              <h2 class="text-sm font-semibold uppercase tracking-[0.2em] text-base-content/70">
+                Projects
+              </h2>
+              <span id="file-count" class="text-xs text-base-content/60">0 files</span>
+            </div>
+            <div id="file-list" class="mt-4 max-h-[360px] overflow-x-auto overflow-y-auto text-sm text-base-content/80">
+              <p class="text-xs text-base-content/60">Upload a zip to see your Java files.</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <section class="rounded-box border border-base-300 bg-base-100 p-5 shadow">
+            <div class="space-y-3">
+              <div class="collapse collapse-arrow bg-base-200">
+                <input type="radio" name="settings-accordion" checked />
+                <div class="collapse-title text-sm font-semibold">Design</div>
+                <div class="collapse-content">
+                  <div class="grid gap-3">
+                    <label class="form-control">
+                      <span class="label-text text-sm font-medium">Font size</span>
+                      <input id="font-size" type="range" min="9" max="18" value="12" class="range range-primary" />
+                      <span id="font-size-value" class="mt-1 text-xs text-base-content/70">12 px</span>
+                    </label>
+
+                    <label class="form-control">
+                      <span class="label-text text-sm font-medium">Line height</span>
+                      <input id="line-height" type="range" min="1.2" max="2" step="0.05" value="1.5" class="range range-primary" />
+                      <span id="line-height-value" class="mt-1 text-xs text-base-content/70">1.5</span>
+                    </label>
+
+                    <label class="form-control">
+                      <span class="label-text text-sm font-medium">Color scheme</span>
+                      <select id="theme-select" class="select select-bordered w-full"></select>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="collapse collapse-arrow bg-base-200">
+                <input type="radio" name="settings-accordion" />
+                <div class="collapse-title text-sm font-semibold">Output</div>
+                <div class="collapse-content">
+                  <div class="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2">
+                    <div class="tooltip" data-tip="Off: a zip with one PDF per project. On: one continuous PDF with all projects.">
+                      <span class="label-text">Single continuous PDF</span>
+                    </div>
+                    <input id="output-toggle" type="checkbox" class="toggle toggle-primary" />
+
+                    <span class="label-text">Project name in header</span>
+                    <input id="header-project-toggle" type="checkbox" class="toggle toggle-primary" />
+
+                    <span class="label-text">File name in header</span>
+                    <input id="header-file-toggle" type="checkbox" class="toggle toggle-primary" />
+
+                    <span class="label-text">Page numbers in footer</span>
+                    <input id="footer-page-toggle" type="checkbox" class="toggle toggle-primary" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-4">
+              <button id="download-btn" class="btn btn-primary w-full" disabled>
+                <span id="download-spinner" class="loading loading-spinner hidden"></span>
+                <span>Generate &amp; Download</span>
+              </button>
+              <p id="status" class="mt-2 text-xs text-base-content/70"></p>
+            </div>
+          </section>
+
+          <section class="relative rounded-box border border-base-300 bg-base-100 p-6 shadow">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.3em] text-base-content/70">Preview</p>
+                <h2 id="preview-title" class="text-2xl font-semibold">Select a file</h2>
+              </div>
+              <span id="preview-meta" class="text-xs text-base-content/60"></span>
+            </div>
+
+            <div id="preview-wrapper" class="mt-6 rounded-box border border-base-300 bg-base-200">
+              <pre class="max-h-[68vh] overflow-auto p-5"><code id="code-block" class="language-java"></code></pre>
+            </div>
+
+          </section>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
