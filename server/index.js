@@ -8,6 +8,7 @@ import { config } from './config.js';
 import { parseSettings } from './settings.js';
 import { saveUploadToTemp, readJavaProjects } from './zip.js';
 import { baseNameWithoutExtension, sanitizeFilename, UserError } from './utils.js';
+import { applyFilters } from '../shared/filters.js';
 import {
   buildFileHtml,
   buildFooterTemplate,
@@ -33,8 +34,12 @@ app.register(multipart, {
 app.get('/api/health', async () => ({ status: 'ok' }));
 
 async function renderFilePdf({ file, projectName, settings, renderer, theme, highlighter }) {
+  const filteredFile = {
+    ...file,
+    content: applyFilters(file.content, settings),
+  };
   const html = buildFileHtml({
-    file,
+    file: filteredFile,
     theme,
     fontSize: settings.fontSize,
     lineHeight: settings.lineHeight,

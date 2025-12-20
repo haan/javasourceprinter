@@ -4,6 +4,7 @@ import hljs from 'highlight.js/lib/core';
 import java from 'highlight.js/lib/languages/java';
 import { DEFAULT_THEME_ID, getThemeOptions } from '../shared/themes.js';
 import { applyHighlightTheme } from './theme-loader.js';
+import { applyFilters } from '../shared/filters.js';
 
 hljs.registerLanguage('java', java);
 
@@ -24,11 +25,16 @@ const elements = {
   fontSizeValue: document.querySelector('#font-size-value'),
   lineHeight: document.querySelector('#line-height'),
   lineHeightValue: document.querySelector('#line-height-value'),
+  tabsToSpacesToggle: document.querySelector('#tabs-to-spaces-toggle'),
   themeSelect: document.querySelector('#theme-select'),
   outputToggle: document.querySelector('#output-toggle'),
   headerProjectToggle: document.querySelector('#header-project-toggle'),
   headerFileToggle: document.querySelector('#header-file-toggle'),
   footerPageToggle: document.querySelector('#footer-page-toggle'),
+  filterJavadocToggle: document.querySelector('#filter-javadoc-toggle'),
+  filterCommentsToggle: document.querySelector('#filter-comments-toggle'),
+  filterBlankLinesToggle: document.querySelector('#filter-blanklines-toggle'),
+  filterInitComponentsToggle: document.querySelector('#filter-initcomponents-toggle'),
   downloadBtn: document.querySelector('#download-btn'),
   status: document.querySelector('#status'),
   previewTitle: document.querySelector('#preview-title'),
@@ -48,12 +54,17 @@ const state = {
   settings: {
     fontSize: 12,
     lineHeight: 1.5,
+    tabsToSpaces: true,
     theme: DEFAULT_THEME_ID,
     outputMode: 'per-project',
     highlighter: 'highlightjs',
     showProjectHeader: true,
     showFileHeader: true,
     showPageNumbers: true,
+    removeJavadoc: false,
+    removeComments: false,
+    collapseBlankLines: true,
+    hideInitComponents: true,
   },
 };
 
@@ -184,8 +195,9 @@ function renderPreview() {
   elements.previewTitle.textContent = selection.file.name;
   elements.previewMeta.textContent = selection.project.name;
 
+  const filteredContent = applyFilters(selection.file.content, state.settings);
   elements.codeBlock.className = 'hljs language-java';
-  elements.codeBlock.textContent = selection.file.content;
+  elements.codeBlock.textContent = filteredContent;
   updatePreviewFontSize();
   delete elements.codeBlock.dataset.highlighted;
   hljs.highlightElement(elements.codeBlock);
@@ -194,13 +206,19 @@ function renderPreview() {
 function setSettings({
   fontSize,
   lineHeight,
+  tabsToSpaces,
   theme,
   outputMode,
   highlighter,
   showProjectHeader,
   showFileHeader,
   showPageNumbers,
+  removeJavadoc,
+  removeComments,
+  collapseBlankLines,
+  hideInitComponents,
 }) {
+  let needsPreviewRefresh = false;
   if (fontSize) {
     state.settings.fontSize = fontSize;
     elements.fontSizeValue.textContent = `${fontSize} px`;
@@ -210,6 +228,10 @@ function setSettings({
     state.settings.lineHeight = lineHeight;
     elements.lineHeightValue.textContent = `${lineHeight}`;
     updatePreviewLineHeight();
+  }
+  if (typeof tabsToSpaces === 'boolean') {
+    state.settings.tabsToSpaces = tabsToSpaces;
+    needsPreviewRefresh = true;
   }
   if (theme) {
     state.settings.theme = theme;
@@ -230,6 +252,26 @@ function setSettings({
   }
   if (typeof showPageNumbers === 'boolean') {
     state.settings.showPageNumbers = showPageNumbers;
+  }
+  if (typeof removeJavadoc === 'boolean') {
+    state.settings.removeJavadoc = removeJavadoc;
+    needsPreviewRefresh = true;
+  }
+  if (typeof removeComments === 'boolean') {
+    state.settings.removeComments = removeComments;
+    needsPreviewRefresh = true;
+  }
+  if (typeof collapseBlankLines === 'boolean') {
+    state.settings.collapseBlankLines = collapseBlankLines;
+    needsPreviewRefresh = true;
+  }
+  if (typeof hideInitComponents === 'boolean') {
+    state.settings.hideInitComponents = hideInitComponents;
+    needsPreviewRefresh = true;
+  }
+
+  if (needsPreviewRefresh) {
+    renderPreview();
   }
 }
 
@@ -320,12 +362,17 @@ function getDemoProjects() {
         {
           name: 'Main.java',
           path: 'demo-app/src/Main.java',
-          content: `package demo;\n\npublic class Main {\n  public static void main(String[] args) {\n    System.out.println(\"Hello from demo-app\");\n  }\n}\n`,
+          content: `package demo.app;\n\npublic class Main {\n  /**\n   * Entry point for demo-app.\n   */\n  public static void main(String[] args) {\n    System.out.println(\"Hello from demo-app\");\n  }\n}\n`,
         },
         {
-          name: 'Utils.java',
-          path: 'demo-app/src/Utils.java',
-          content: `package demo;\n\npublic final class Utils {\n  private Utils() {}\n\n  public static int add(int a, int b) {\n    return a + b;\n  }\n}\n`,
+          name: 'Config.java',
+          path: 'demo-app/src/Config.java',
+          content: `package demo.app;\n\npublic final class Config {\n  public static final String ENV = \"dev\";\n\n  // Feature flags\n  public static final boolean ENABLE_METRICS = true;\n\n  /*\n   * Multi-line comment to demonstrate filtering.\n   */\n  public static final int MAX_RETRIES = 3;\n\n  private Config() {}\n}\n`,
+        },
+        {
+          name: 'Startup.java',
+          path: 'demo-app/src/Startup.java',
+          content: `package demo.app;\n\npublic final class Startup {\n  private Startup() {}\n\n  public static boolean ready() {\n    return true;\n  }\n}\n`,
         },
       ],
     },
@@ -333,9 +380,54 @@ function getDemoProjects() {
       name: 'demo-lib',
       files: [
         {
+          name: 'MathUtils.java',
+          path: 'demo-lib/src/MathUtils.java',
+          content: `package demo.lib;\n\npublic final class MathUtils {\n\tprivate MathUtils() {}\n\n\tpublic static int multiply(int a, int b) {\n\t\treturn a * b;\n\t}\n}\n`,
+        },
+        {
+          name: 'CollectionUtils.java',
+          path: 'demo-lib/src/CollectionUtils.java',
+          content: `package demo.lib;\n\nimport java.util.List;\n\npublic final class CollectionUtils {\n  private CollectionUtils() {}\n\n  public static boolean isEmpty(List<?> list) {\n    return list == null || list.isEmpty();\n  }\n}\n`,
+        },
+        {
           name: 'Library.java',
           path: 'demo-lib/src/Library.java',
           content: `package demo.lib;\n\npublic class Library {\n  public String version() {\n    return \"1.0.0\";\n  }\n}\n`,
+        },
+      ],
+    },
+    {
+      name: 'demo-service',
+      files: [
+        {
+          name: 'ApiClient.java',
+          path: 'demo-service/src/ApiClient.java',
+          content: `package demo.service;\n\npublic class ApiClient {\n  /**\n   * Fetches data from the service.\n   */\n  public String fetch(String endpoint) {\n    return \"ok\";\n  }\n}\n`,
+        },
+        {
+          name: 'RetryPolicy.java',
+          path: 'demo-service/src/RetryPolicy.java',
+          content: `package demo.service;\n\npublic final class RetryPolicy {\n  private final int maxAttempts;\n\n  public RetryPolicy(int maxAttempts) {\n    this.maxAttempts = maxAttempts;\n  }\n\n  public boolean shouldRetry(int attempt) {\n    return attempt < maxAttempts;\n  }\n}\n`,
+        },
+        {
+          name: 'ServiceStatus.java',
+          path: 'demo-service/src/ServiceStatus.java',
+          content: `package demo.service;\n\npublic enum ServiceStatus {\n  STARTING,\n  RUNNING,\n  STOPPED\n}\n`,
+        },
+      ],
+    },
+    {
+      name: 'demo-ui',
+      files: [
+        {
+          name: 'MainFrame.java',
+          path: 'demo-ui/src/MainFrame.java',
+          content: `package demo.ui;\n\npublic class MainFrame {\n  private void initComponents() {\n    // UI components would be configured here.\n    javax.swing.JButton button = new javax.swing.JButton();\n    button.setText(\"OK\");\n  }\n}\n`,
+        },
+        {
+          name: 'Theme.java',
+          path: 'demo-ui/src/Theme.java',
+          content: `package demo.ui;\n\npublic final class Theme {\n  public static final String PRIMARY = \"#0f766e\";\n\n  private Theme() {}\n}\n`,
         },
       ],
     },
@@ -500,6 +592,10 @@ elements.lineHeight.addEventListener('input', (event) => {
   setSettings({ lineHeight: Number(event.target.value) });
 });
 
+elements.tabsToSpacesToggle.addEventListener('change', (event) => {
+  setSettings({ tabsToSpaces: event.target.checked });
+});
+
 elements.themeSelect.addEventListener('change', (event) => {
   setSettings({ theme: event.target.value });
 });
@@ -520,6 +616,22 @@ elements.footerPageToggle.addEventListener('change', (event) => {
   setSettings({ showPageNumbers: event.target.checked });
 });
 
+elements.filterJavadocToggle.addEventListener('change', (event) => {
+  setSettings({ removeJavadoc: event.target.checked });
+});
+
+elements.filterCommentsToggle.addEventListener('change', (event) => {
+  setSettings({ removeComments: event.target.checked });
+});
+
+elements.filterBlankLinesToggle.addEventListener('change', (event) => {
+  setSettings({ collapseBlankLines: event.target.checked });
+});
+
+elements.filterInitComponentsToggle.addEventListener('change', (event) => {
+  setSettings({ hideInitComponents: event.target.checked });
+});
+
 setupThemeOptions();
 applyHighlightTheme(state.settings.theme);
 updatePreviewFontSize();
@@ -533,3 +645,8 @@ elements.headerFileToggle.checked = state.settings.showFileHeader;
 elements.footerPageToggle.checked = state.settings.showPageNumbers;
 elements.lineHeight.value = state.settings.lineHeight;
 elements.lineHeightValue.textContent = `${state.settings.lineHeight}`;
+elements.filterJavadocToggle.checked = state.settings.removeJavadoc;
+elements.filterCommentsToggle.checked = state.settings.removeComments;
+elements.filterBlankLinesToggle.checked = state.settings.collapseBlankLines;
+elements.filterInitComponentsToggle.checked = state.settings.hideInitComponents;
+elements.tabsToSpacesToggle.checked = state.settings.tabsToSpaces;

@@ -47,15 +47,15 @@ npm run build
 
 ## 4) Backend env file
 
-Copy `deploy/env/java-source-printer.env` to `/var/www/java/server/.env` and adjust limits if needed.
+Copy `deploy/env/javasourceprinter.env` to `/var/www/java/server/.env` and adjust limits if needed.
 
 ## 5) systemd service
 
 ```
-sudo cp deploy/systemd/java-source-printer.service /etc/systemd/system/java-source-printer.service
+sudo cp deploy/systemd/javasourceprinter.service /etc/systemd/system/javasourceprinter.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now java-source-printer
-sudo systemctl status java-source-printer
+sudo systemctl enable --now javasourceprinter
+sudo systemctl status javasourceprinter
 ```
 
 Health check:
@@ -68,8 +68,8 @@ curl http://127.0.0.1:3001/api/health
 
 ```
 sudo a2enmod proxy proxy_http headers ssl
-sudo cp deploy/apache/java.haan.lu.conf /etc/apache2/sites-available/java.haan.lu.conf
-sudo a2ensite java.haan.lu.conf
+sudo cp deploy/apache/javasourceprinter.conf /etc/apache2/sites-available/javasourceprinter.conf
+sudo a2ensite javasourceprinter.conf
 sudo systemctl reload apache2
 ```
 

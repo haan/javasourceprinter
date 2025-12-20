@@ -4,12 +4,17 @@ import { clampNumber } from './utils.js';
 export const DEFAULT_SETTINGS = {
   fontSize: 12,
   lineHeight: 1.5,
+  tabsToSpaces: true,
   theme: DEFAULT_THEME_ID,
   outputMode: 'per-project',
   highlighter: 'highlightjs',
   showProjectHeader: true,
   showFileHeader: true,
   showPageNumbers: true,
+  removeJavadoc: false,
+  removeComments: false,
+  collapseBlankLines: true,
+  hideInitComponents: true,
 };
 
 function toStringPayload(payload) {
@@ -39,21 +44,31 @@ export function parseSettings(payload) {
 
   const fontSize = clampNumber(Number(parsed.fontSize), 9, 18, DEFAULT_SETTINGS.fontSize);
   const lineHeight = clampNumber(Number(parsed.lineHeight), 1.2, 2, DEFAULT_SETTINGS.lineHeight);
+  const tabsToSpaces = toBoolean(parsed.tabsToSpaces, DEFAULT_SETTINGS.tabsToSpaces);
   const theme = getThemeById(parsed.theme).id;
   const outputMode = parsed.outputMode === 'per-project' ? 'per-project' : 'single';
   const highlighter = parsed.highlighter === 'highlightjs' ? 'highlightjs' : DEFAULT_SETTINGS.highlighter;
   const showProjectHeader = toBoolean(parsed.showProjectHeader, DEFAULT_SETTINGS.showProjectHeader);
   const showFileHeader = toBoolean(parsed.showFileHeader, DEFAULT_SETTINGS.showFileHeader);
   const showPageNumbers = toBoolean(parsed.showPageNumbers, DEFAULT_SETTINGS.showPageNumbers);
+  const removeJavadoc = toBoolean(parsed.removeJavadoc, DEFAULT_SETTINGS.removeJavadoc);
+  const removeComments = toBoolean(parsed.removeComments, DEFAULT_SETTINGS.removeComments);
+  const collapseBlankLines = toBoolean(parsed.collapseBlankLines, DEFAULT_SETTINGS.collapseBlankLines);
+  const hideInitComponents = toBoolean(parsed.hideInitComponents, DEFAULT_SETTINGS.hideInitComponents);
 
   return {
     fontSize,
     lineHeight,
+    tabsToSpaces,
     theme,
     outputMode,
     highlighter,
     showProjectHeader,
     showFileHeader,
     showPageNumbers,
+    removeJavadoc,
+    removeComments,
+    collapseBlankLines,
+    hideInitComponents,
   };
 }
