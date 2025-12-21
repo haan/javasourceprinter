@@ -2,6 +2,7 @@ import './index.css';
 import JSZip from 'jszip';
 import hljs from 'highlight.js/lib/core';
 import java from 'highlight.js/lib/languages/java';
+import { DEFAULT_FONT_ID, getFontById, getFontOptions } from '../shared/fonts.js';
 import { DEFAULT_THEME_ID, getThemeOptions } from '../shared/themes.js';
 import { applyHighlightTheme } from './theme-loader.js';
 import { applyFilters } from '../shared/filters.js';
@@ -27,6 +28,7 @@ const elements = {
   lineHeightValue: document.querySelector('#line-height-value'),
   tabsToSpacesToggle: document.querySelector('#tabs-to-spaces-toggle'),
   themeSelect: document.querySelector('#theme-select'),
+  fontSelect: document.querySelector('#font-select'),
   pageBreakSelect: document.querySelector('#page-break-select'),
   outputToggle: document.querySelector('#output-toggle'),
   headerProjectToggle: document.querySelector('#header-project-toggle'),
@@ -62,6 +64,7 @@ const state = {
     lineHeight: 1.5,
     tabsToSpaces: true,
     theme: DEFAULT_THEME_ID,
+    fontFamily: DEFAULT_FONT_ID,
     pageBreakMultiple: 1,
     outputMode: 'per-project',
     highlighter: 'highlightjs',
@@ -139,6 +142,11 @@ function updatePreviewLineHeight() {
   elements.codeBlock.style.lineHeight = `${state.settings.lineHeight}`;
 }
 
+function updatePreviewFontFamily() {
+  const font = getFontById(state.settings.fontFamily);
+  elements.codeBlock.style.fontFamily = font.css;
+}
+
 function syncHeaderPathToggle() {
   const canShowPath = state.settings.showFileHeader;
   elements.headerPathToggle.disabled = !canShowPath;
@@ -158,7 +166,7 @@ function renderFileList() {
   }
 
   const table = document.createElement('table');
-  table.className = 'table table-pin-rows table-pin-cols w-full';
+  table.className = 'table table-pin-rows table-pin-cols w-full table-xs sm:table-sm';
 
   const thead = document.createElement('thead');
   thead.innerHTML = `
@@ -237,11 +245,12 @@ function renderPreview() {
   elements.previewMeta.textContent = selection.project.name;
 
   const filteredContent = applyFilters(selection.file.content, state.settings);
+  const highlighted = hljs.highlight(filteredContent, { language: 'java' }).value;
   elements.codeBlock.className = 'hljs language-java';
-  elements.codeBlock.textContent = filteredContent;
+  elements.codeBlock.innerHTML = highlighted;
   updatePreviewFontSize();
-  delete elements.codeBlock.dataset.highlighted;
-  hljs.highlightElement(elements.codeBlock);
+  updatePreviewLineHeight();
+  updatePreviewFontFamily();
 }
 
 function setSettings({
@@ -249,6 +258,7 @@ function setSettings({
   lineHeight,
   tabsToSpaces,
   theme,
+  fontFamily,
   pageBreakMultiple,
   outputMode,
   highlighter,
@@ -281,6 +291,10 @@ function setSettings({
     state.settings.theme = theme;
     applyHighlightTheme(theme);
     renderPreview();
+  }
+  if (fontFamily) {
+    state.settings.fontFamily = fontFamily;
+    updatePreviewFontFamily();
   }
   if (Number.isFinite(pageBreakMultiple)) {
     state.settings.pageBreakMultiple = pageBreakMultiple;
@@ -704,6 +718,14 @@ function setupThemeOptions() {
   elements.themeSelect.value = state.settings.theme;
 }
 
+function setupFontOptions() {
+  const options = getFontOptions();
+  elements.fontSelect.innerHTML = options
+    .map((option) => `<option value="${option.id}">${option.label}</option>`)
+    .join('');
+  elements.fontSelect.value = state.settings.fontFamily;
+}
+
 elements.zipInput.addEventListener('change', handleLandingZipChange);
 elements.landingUpload.addEventListener('click', handleLandingUpload);
 elements.landingDemo.addEventListener('click', handleDemoMode);
@@ -726,6 +748,10 @@ elements.tabsToSpacesToggle.addEventListener('change', (event) => {
 
 elements.themeSelect.addEventListener('change', (event) => {
   setSettings({ theme: event.target.value });
+});
+
+elements.fontSelect.addEventListener('change', (event) => {
+  setSettings({ fontFamily: event.target.value });
 });
 
 elements.pageBreakSelect.addEventListener('change', (event) => {
@@ -773,9 +799,11 @@ elements.filterMainToggle.addEventListener('change', (event) => {
 });
 
 setupThemeOptions();
+setupFontOptions();
 applyHighlightTheme(state.settings.theme);
 updatePreviewFontSize();
 updatePreviewLineHeight();
+updatePreviewFontFamily();
 setStatus('Upload a zip to begin.');
 setLandingStatus('Select a zip or try the demo.');
 showLanding();
@@ -787,6 +815,7 @@ elements.footerPageToggle.checked = state.settings.showPageNumbers;
 elements.lineHeight.value = state.settings.lineHeight;
 elements.lineHeightValue.textContent = `${state.settings.lineHeight}`;
 elements.pageBreakSelect.value = String(state.settings.pageBreakMultiple);
+elements.fontSelect.value = state.settings.fontFamily;
 elements.filterJavadocToggle.checked = state.settings.removeJavadoc;
 elements.filterCommentsToggle.checked = state.settings.removeComments;
 elements.filterBlankLinesToggle.checked = state.settings.collapseBlankLines;
