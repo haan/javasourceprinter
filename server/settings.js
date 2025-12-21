@@ -1,3 +1,4 @@
+import { DEFAULT_FONT_ID, getFontById } from '../shared/fonts.js';
 import { DEFAULT_THEME_ID, getThemeById } from '../shared/themes.js';
 import { clampNumber } from './utils.js';
 
@@ -6,6 +7,7 @@ export const DEFAULT_SETTINGS = {
   lineHeight: 1.5,
   tabsToSpaces: true,
   theme: DEFAULT_THEME_ID,
+  fontFamily: DEFAULT_FONT_ID,
   pageBreakMultiple: 1,
   outputMode: 'per-project',
   highlighter: 'highlightjs',
@@ -54,6 +56,7 @@ export function parseSettings(payload) {
   const lineHeight = clampNumber(Number(parsed.lineHeight), 1.2, 2, DEFAULT_SETTINGS.lineHeight);
   const tabsToSpaces = toBoolean(parsed.tabsToSpaces, DEFAULT_SETTINGS.tabsToSpaces);
   const theme = getThemeById(parsed.theme).id;
+  const fontFamily = getFontById(parsed.fontFamily).id;
   const pageBreakMultiple = toBreakMultiple(parsed.pageBreakMultiple, DEFAULT_SETTINGS.pageBreakMultiple);
   const outputMode =
     parsed.outputMode === 'single' || parsed.outputMode === 'per-project'
@@ -75,6 +78,7 @@ export function parseSettings(payload) {
     lineHeight,
     tabsToSpaces,
     theme,
+    fontFamily,
     pageBreakMultiple,
     outputMode,
     highlighter,

@@ -245,13 +245,8 @@
                     </label>
 
                     <label class="form-control">
-                      <span class="label-text text-sm font-medium">Pad to page multiple of:</span>
-                      <select id="page-break-select" class="select select-bordered w-full">
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="4">4</option>
-                        <option value="8">8</option>
-                      </select>
+                      <span class="label-text text-sm font-medium">Font family</span>
+                      <select id="font-select" class="select select-bordered w-full"></select>
                     </label>
                   </div>
                 </div>
@@ -263,19 +258,19 @@
                 <div class="collapse-content">
                   <div class="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2">
                     <span class="label-text">Remove JavaDoc</span>
-                    <input id="filter-javadoc-toggle" type="checkbox" class="toggle toggle-primary" />
+                    <input id="filter-javadoc-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
 
                     <span class="label-text">Remove comments</span>
-                    <input id="filter-comments-toggle" type="checkbox" class="toggle toggle-primary" />
+                    <input id="filter-comments-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
 
                     <span class="label-text">Collapse blank lines</span>
-                    <input id="filter-blanklines-toggle" type="checkbox" class="toggle toggle-primary" />
+                    <input id="filter-blanklines-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
 
                     <span class="label-text">Hide initComponents()</span>
-                    <input id="filter-initcomponents-toggle" type="checkbox" class="toggle toggle-primary" />
+                    <input id="filter-initcomponents-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
 
                     <span class="label-text">Hide main()</span>
-                    <input id="filter-main-toggle" type="checkbox" class="toggle toggle-primary" />
+                    <input id="filter-main-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
                   </div>
                 </div>
               </div>
@@ -286,19 +281,27 @@
                 <div class="collapse-content">
                   <div class="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2">
                     <span class="label-text">Single continuous PDF</span>
-                    <input id="output-toggle" type="checkbox" class="toggle toggle-primary" />
+                    <input id="output-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
 
                     <span class="label-text">Project name in header</span>
-                    <input id="header-project-toggle" type="checkbox" class="toggle toggle-primary" />
+                    <input id="header-project-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
 
                     <span class="label-text">File name in header</span>
-                    <input id="header-file-toggle" type="checkbox" class="toggle toggle-primary" />
+                    <input id="header-file-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
 
                     <span class="label-text">Full path in header</span>
-                    <input id="header-path-toggle" type="checkbox" class="toggle toggle-primary" />
+                    <input id="header-path-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
 
                     <span class="label-text">Page numbers in footer</span>
-                    <input id="footer-page-toggle" type="checkbox" class="toggle toggle-primary" />
+                    <input id="footer-page-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
+
+                    <span class="label-text">Pad to page multiple of:</span>
+                    <select id="page-break-select" class="select select-bordered select-sm w-full">
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="4">4</option>
+                      <option value="8">8</option>
+                    </select>
                   </div>
                 </div>
               </div>

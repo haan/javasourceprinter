@@ -39,7 +39,7 @@ app.register(multipart, {
 
 app.get('/api/health', async () => ({ status: 'ok' }));
 
-async function renderFilePdf({ file, projectName, settings, renderer, theme, highlighter }) {
+async function renderFilePdf({ file, projectName, settings, renderer, theme, highlighter, fontCss }) {
   const filteredFile = {
     ...file,
     content: applyFilters(file.content, settings),
@@ -50,14 +50,17 @@ async function renderFilePdf({ file, projectName, settings, renderer, theme, hig
     fontSize: settings.fontSize,
     lineHeight: settings.lineHeight,
     highlighter,
+    fontFamily: settings.fontFamily,
+    fontCss,
   });
   const headerTemplate = buildHeaderTemplate({
     settings,
     projectName,
     fileName: file.name,
     filePath: file.path,
+    fontCss,
   });
-  const footerTemplate = buildFooterTemplate({ settings });
+  const footerTemplate = buildFooterTemplate({ settings, fontCss });
   const pdfOptions = buildPdfOptions({ headerTemplate, footerTemplate });
   return renderer.render(html, pdfOptions);
 }
@@ -185,7 +188,7 @@ async function buildZipBuffer(entries) {
   });
 }
 
-async function renderMergedPdf({ fileQueue, settings, renderer, theme, highlighter, onFileDone }) {
+async function renderMergedPdf({ fileQueue, settings, renderer, theme, highlighter, fontCss, onFileDone }) {
   const merged = await PDFDocument.create();
   const pdfBuffers = await mapWithConcurrency(
     fileQueue,
@@ -198,6 +201,7 @@ async function renderMergedPdf({ fileQueue, settings, renderer, theme, highlight
         renderer,
         theme,
         highlighter,
+        fontCss,
       }),
     () => {
       if (onFileDone) onFileDone();
@@ -227,7 +231,7 @@ async function runRenderJob(job, uploadInfo, settings) {
 
     const renderer = await createPdfRenderer();
     try {
-      const { theme, highlighter } = await createRenderContext(settings);
+      const { theme, highlighter, fontCss } = await createRenderContext(settings);
       const onFileDone = () => {
         job.completedFiles += 1;
         sendJobEvent(job, 'progress', getProgressPayload(job));
@@ -246,6 +250,7 @@ async function runRenderJob(job, uploadInfo, settings) {
           renderer,
           theme,
           highlighter,
+          fontCss,
           onFileDone,
         });
         job.output = {
@@ -266,6 +271,7 @@ async function runRenderJob(job, uploadInfo, settings) {
             renderer,
             theme,
             highlighter,
+            fontCss,
             onFileDone,
           });
           entries.push({
@@ -333,7 +339,7 @@ app.post('/api/render', async (request, reply) => {
     const renderer = await createPdfRenderer();
 
     try {
-      const { theme, highlighter } = await createRenderContext(settings);
+      const { theme, highlighter, fontCss } = await createRenderContext(settings);
 
       if (settings.outputMode === 'single') {
         const fileQueue = projects.flatMap((project) =>
@@ -348,6 +354,7 @@ app.post('/api/render', async (request, reply) => {
           renderer,
           theme,
           highlighter,
+          fontCss,
         });
         const fileName = `${baseNameWithoutExtension(originalName)}.pdf`;
 
@@ -375,6 +382,7 @@ app.post('/api/render', async (request, reply) => {
           renderer,
           theme,
           highlighter,
+          fontCss,
         });
         const pdfName = `${sanitizeFilename(project.name, 'project')}.pdf`;
         archive.append(pdf, { name: pdfName });
