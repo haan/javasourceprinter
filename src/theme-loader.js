@@ -3,12 +3,14 @@ import atomOneLightUrl from '../shared/themes/atom-one-light.css?url';
 import arduinoLightUrl from '../shared/themes/arduino-light.css?url';
 import stackoverflowLightUrl from '../shared/themes/stackoverflow-light.css?url';
 import vsUrl from '../shared/themes/vs.css?url';
+import monochromeUrl from '../shared/themes/monochrome.css?url';
 
 const THEME_URLS = {
   'atom-one-light': atomOneLightUrl,
   'arduino-light': arduinoLightUrl,
   'stackoverflow-light': stackoverflowLightUrl,
   vs: vsUrl,
+  monochrome: monochromeUrl,
 };
 
 export function applyHighlightTheme(themeId) {

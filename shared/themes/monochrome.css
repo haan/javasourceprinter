@@ -1,0 +1,61 @@
+pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 1em;
+}
+
+code.hljs {
+  padding: 3px 5px;
+}
+
+.hljs {
+  color: #1f2937;
+  background: #ffffff;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #111827;
+  font-weight: 600;
+}
+
+.hljs-string,
+.hljs-title,
+.hljs-section,
+.hljs-type,
+.hljs-name,
+.hljs-attr,
+.hljs-attribute {
+  color: #374151;
+}
+
+.hljs-literal,
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: #4b5563;
+}
+
+.hljs-built_in,
+.hljs-builtin-name {
+  color: #1f2937;
+}
+
+.hljs-meta,
+.hljs-meta-string,
+.hljs-link {
+  color: #4b5563;
+}
+
+.hljs-function,
+.hljs-title.class_,
+.hljs-title.function_ {
+  color: #111827;
+}

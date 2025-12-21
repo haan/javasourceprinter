@@ -47,6 +47,7 @@ function stripComments(text, removeJavadoc) {
 
 function removeInitComponents(text) {
   const signature = 'private void initComponents()';
+  const newline = text.includes('\r\n') ? '\r\n' : '\n';
   let index = 0;
   let result = '';
 
@@ -58,6 +59,10 @@ function removeInitComponents(text) {
     }
 
     result += text.slice(index, matchIndex);
+    const lineStart = text.lastIndexOf('\n', matchIndex - 1) + 1;
+    const linePrefix = text.slice(lineStart, matchIndex);
+    const indentMatch = linePrefix.match(/^\s*/);
+    const indent = indentMatch ? indentMatch[0] : '';
     let cursor = matchIndex + signature.length;
     const openBraceIndex = text.indexOf('{', cursor);
     if (openBraceIndex === -1) {
@@ -74,7 +79,49 @@ function removeInitComponents(text) {
       cursor += 1;
     }
 
-    result += `${signature} {\n    // initComponents() hidden\n  }\n`;
+    result += `${signature} {${newline}${indent}  // initComponents() hidden${newline}${indent}}${newline}`;
+    index = cursor;
+  }
+
+  return result;
+}
+
+function removeMainMethod(text) {
+  const signature = 'public static void main';
+  const newline = text.includes('\r\n') ? '\r\n' : '\n';
+  let index = 0;
+  let result = '';
+
+  while (index < text.length) {
+    const matchIndex = text.indexOf(signature, index);
+    if (matchIndex === -1) {
+      result += text.slice(index);
+      break;
+    }
+
+    result += text.slice(index, matchIndex);
+    const lineStart = text.lastIndexOf('\n', matchIndex - 1) + 1;
+    const linePrefix = text.slice(lineStart, matchIndex);
+    const indentMatch = linePrefix.match(/^\s*/);
+    const indent = indentMatch ? indentMatch[0] : '';
+    let cursor = matchIndex + signature.length;
+    const openBraceIndex = text.indexOf('{', cursor);
+    if (openBraceIndex === -1) {
+      result += text.slice(matchIndex);
+      break;
+    }
+
+    const signatureText = text.slice(matchIndex, openBraceIndex);
+    cursor = openBraceIndex + 1;
+    let depth = 1;
+    while (cursor < text.length && depth > 0) {
+      const char = text[cursor];
+      if (char === '{') depth += 1;
+      if (char === '}') depth -= 1;
+      cursor += 1;
+    }
+
+    result += `${signatureText}{${newline}${indent}  // main() hidden${newline}${indent}}${newline}`;
     index = cursor;
   }
 
@@ -92,6 +139,7 @@ export function applyFilters(content, options = {}) {
   const removeComments = Boolean(options.removeComments);
   const collapseBlanks = Boolean(options.collapseBlankLines);
   const hideInitComponents = Boolean(options.hideInitComponents);
+  const hideMain = Boolean(options.hideMain);
   const tabsToSpaces = Boolean(options.tabsToSpaces);
 
   if (removeComments) {
@@ -102,6 +150,10 @@ export function applyFilters(content, options = {}) {
 
   if (hideInitComponents) {
     text = removeInitComponents(text);
+  }
+
+  if (hideMain) {
+    text = removeMainMethod(text);
   }
 
   if (collapseBlanks) {

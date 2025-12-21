@@ -21,6 +21,11 @@ export const THEMES = [
     label: 'VS',
     file: 'vs.css',
   },
+  {
+    id: 'monochrome',
+    label: 'Monochrome',
+    file: 'monochrome.css',
+  },
 ];
 
 export function getThemeById(id) {

@@ -37,6 +37,7 @@ const elements = {
   filterCommentsToggle: document.querySelector('#filter-comments-toggle'),
   filterBlankLinesToggle: document.querySelector('#filter-blanklines-toggle'),
   filterInitComponentsToggle: document.querySelector('#filter-initcomponents-toggle'),
+  filterMainToggle: document.querySelector('#filter-main-toggle'),
   downloadBtn: document.querySelector('#download-btn'),
   status: document.querySelector('#status'),
   progressWrap: document.querySelector('#progress-wrap'),
@@ -72,6 +73,7 @@ const state = {
     removeComments: false,
     collapseBlankLines: true,
     hideInitComponents: true,
+    hideMain: true,
   },
 };
 
@@ -258,6 +260,7 @@ function setSettings({
   removeComments,
   collapseBlankLines,
   hideInitComponents,
+  hideMain,
 }) {
   let needsPreviewRefresh = false;
   if (fontSize) {
@@ -319,6 +322,10 @@ function setSettings({
   }
   if (typeof hideInitComponents === 'boolean') {
     state.settings.hideInitComponents = hideInitComponents;
+    needsPreviewRefresh = true;
+  }
+  if (typeof hideMain === 'boolean') {
+    state.settings.hideMain = hideMain;
     needsPreviewRefresh = true;
   }
 
@@ -761,6 +768,10 @@ elements.filterInitComponentsToggle.addEventListener('change', (event) => {
   setSettings({ hideInitComponents: event.target.checked });
 });
 
+elements.filterMainToggle.addEventListener('change', (event) => {
+  setSettings({ hideMain: event.target.checked });
+});
+
 setupThemeOptions();
 applyHighlightTheme(state.settings.theme);
 updatePreviewFontSize();
@@ -780,5 +791,6 @@ elements.filterJavadocToggle.checked = state.settings.removeJavadoc;
 elements.filterCommentsToggle.checked = state.settings.removeComments;
 elements.filterBlankLinesToggle.checked = state.settings.collapseBlankLines;
 elements.filterInitComponentsToggle.checked = state.settings.hideInitComponents;
+elements.filterMainToggle.checked = state.settings.hideMain;
 elements.tabsToSpacesToggle.checked = state.settings.tabsToSpaces;
 syncHeaderPathToggle();

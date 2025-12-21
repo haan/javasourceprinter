@@ -9,7 +9,8 @@ Java Source Printer turns a zip full of Java projects into syntax-highlighted PD
 - Filters: remove JavaDoc, remove comments, collapse blank lines, hide initComponents, tabs to spaces.
 - Output as a single PDF or a zip of per-project PDFs.
 - Optional headers (project and file name) and footer page numbers.
-- Highlighting via highlight.js with built-in themes: atom-one-light, arduino-light, stackoverflow-light, vs.
+- Render progress with a live radial indicator (per-file progress).
+- Highlighting via highlight.js with built-in themes: atom-one-light, arduino-light, stackoverflow-light, vs, monochrome.
 - No files retained on the server (temp files are deleted after each request).
 
 ## Development

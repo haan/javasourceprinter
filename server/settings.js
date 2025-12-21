@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS = {
   removeComments: false,
   collapseBlankLines: true,
   hideInitComponents: true,
+  hideMain: true,
 };
 
 function toStringPayload(payload) {
@@ -66,6 +67,7 @@ export function parseSettings(payload) {
   const removeComments = toBoolean(parsed.removeComments, DEFAULT_SETTINGS.removeComments);
   const collapseBlankLines = toBoolean(parsed.collapseBlankLines, DEFAULT_SETTINGS.collapseBlankLines);
   const hideInitComponents = toBoolean(parsed.hideInitComponents, DEFAULT_SETTINGS.hideInitComponents);
+  const hideMain = toBoolean(parsed.hideMain, DEFAULT_SETTINGS.hideMain);
   const showFilePath = showFileHeader ? toBoolean(parsed.showFilePath, DEFAULT_SETTINGS.showFilePath) : false;
 
   return {
@@ -84,5 +86,6 @@ export function parseSettings(payload) {
     removeComments,
     collapseBlankLines,
     hideInitComponents,
+    hideMain,
   };
 }
