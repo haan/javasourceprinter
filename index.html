@@ -216,10 +216,10 @@
         <div class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <section class="rounded-box border border-base-300 bg-base-100 p-5 shadow">
             <div class="space-y-3">
-              <div class="collapse collapse-arrow bg-base-200 overflow-visible">
+              <div class="collapse collapse-arrow bg-base-200">
                 <input type="radio" name="settings-accordion" checked />
                 <div class="collapse-title text-sm font-semibold">Design</div>
-                <div class="collapse-content overflow-visible">
+                <div class="collapse-content">
                   <div class="grid gap-3">
                     <label class="form-control">
                       <span class="label-text text-sm font-medium">Font size</span>
@@ -245,9 +245,7 @@
                     </label>
 
                     <label class="form-control">
-                      <div class="tooltip tooltip-top" data-tip="Adds blank pages so each file ends on a page count that is a multiple of the selected number.">
-                        <span class="label-text text-sm font-medium">Pad to page multiple of:</span>
-                      </div>
+                      <span class="label-text text-sm font-medium">Pad to page multiple of:</span>
                       <select id="page-break-select" class="select select-bordered w-full">
                         <option value="1">1</option>
                         <option value="2">2</option>
@@ -284,9 +282,7 @@
                 <div class="collapse-title text-sm font-semibold">Output</div>
                 <div class="collapse-content">
                   <div class="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2">
-                    <div class="tooltip" data-tip="Off: a zip with one PDF per project. On: one continuous PDF with all projects.">
-                      <span class="label-text">Single continuous PDF</span>
-                    </div>
+                    <span class="label-text">Single continuous PDF</span>
                     <input id="output-toggle" type="checkbox" class="toggle toggle-primary" />
 
                     <span class="label-text">Project name in header</span>
