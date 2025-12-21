@@ -6,6 +6,7 @@ function toInt(value, fallback) {
 export const config = {
   host: process.env.HOST || '127.0.0.1',
   port: toInt(process.env.PORT, 3001),
+  renderConcurrency: toInt(process.env.RENDER_CONCURRENCY, 2),
   maxZipBytes: toInt(process.env.MAX_ZIP_BYTES, 50 * 1024 * 1024),
   maxTotalBytes: toInt(process.env.MAX_TOTAL_BYTES, 50 * 1024 * 1024),
   maxFileBytes: toInt(process.env.MAX_FILE_BYTES, 2 * 1024 * 1024),

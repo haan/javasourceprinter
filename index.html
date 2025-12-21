@@ -216,10 +216,10 @@
         <div class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <section class="rounded-box border border-base-300 bg-base-100 p-5 shadow">
             <div class="space-y-3">
-              <div class="collapse collapse-arrow bg-base-200">
+              <div class="collapse collapse-arrow bg-base-200 overflow-visible">
                 <input type="radio" name="settings-accordion" checked />
                 <div class="collapse-title text-sm font-semibold">Design</div>
-                <div class="collapse-content">
+                <div class="collapse-content overflow-visible">
                   <div class="grid gap-3">
                     <label class="form-control">
                       <span class="label-text text-sm font-medium">Font size</span>
@@ -242,6 +242,18 @@
                     <label class="form-control">
                       <span class="label-text text-sm font-medium">Color scheme</span>
                       <select id="theme-select" class="select select-bordered w-full"></select>
+                    </label>
+
+                    <label class="form-control">
+                      <div class="tooltip tooltip-top" data-tip="Adds blank pages so each file ends on a page count that is a multiple of the selected number.">
+                        <span class="label-text text-sm font-medium">Pad to page multiple of:</span>
+                      </div>
+                      <select id="page-break-select" class="select select-bordered w-full">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="4">4</option>
+                        <option value="8">8</option>
+                      </select>
                     </label>
                   </div>
                 </div>
@@ -282,6 +294,9 @@
 
                     <span class="label-text">File name in header</span>
                     <input id="header-file-toggle" type="checkbox" class="toggle toggle-primary" />
+
+                    <span class="label-text">Full path in header</span>
+                    <input id="header-path-toggle" type="checkbox" class="toggle toggle-primary" />
 
                     <span class="label-text">Page numbers in footer</span>
                     <input id="footer-page-toggle" type="checkbox" class="toggle toggle-primary" />

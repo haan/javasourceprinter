@@ -34,14 +34,33 @@ export async function readJavaProjects(zipPath, config) {
       throw new UserError('Too many Java files in the zip.', 413);
     }
 
+    const entrySize = Number(entry.uncompressedSize);
+    const hasEntrySize = Number.isFinite(entrySize) && entrySize >= 0;
+    if (hasEntrySize && entrySize > config.maxFileBytes) {
+      throw new UserError('A Java file exceeds the allowed size.', 413);
+    }
+    if (hasEntrySize) {
+      totalBytes += entrySize;
+      if (totalBytes > config.maxTotalBytes) {
+        throw new UserError('Total Java source size exceeds the allowed limit.', 413);
+      }
+    }
+
     const buffer = await entry.buffer();
     if (buffer.length > config.maxFileBytes) {
       throw new UserError('A Java file exceeds the allowed size.', 413);
     }
 
-    totalBytes += buffer.length;
-    if (totalBytes > config.maxTotalBytes) {
-      throw new UserError('Total Java source size exceeds the allowed limit.', 413);
+    if (!hasEntrySize) {
+      totalBytes += buffer.length;
+      if (totalBytes > config.maxTotalBytes) {
+        throw new UserError('Total Java source size exceeds the allowed limit.', 413);
+      }
+    } else if (buffer.length !== entrySize) {
+      totalBytes += buffer.length - entrySize;
+      if (totalBytes > config.maxTotalBytes) {
+        throw new UserError('Total Java source size exceeds the allowed limit.', 413);
+      }
     }
 
     const projectName = segments[0];

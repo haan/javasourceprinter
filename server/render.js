@@ -2,6 +2,50 @@ import { chromium } from 'playwright';
 import { getHighlighter } from './highlighters/index.js';
 import { loadTheme } from './theme-loader.js';
 
+let sharedBrowser = null;
+let sharedBrowserPromise = null;
+
+async function getSharedBrowser() {
+  if (sharedBrowser) return sharedBrowser;
+  if (!sharedBrowserPromise) {
+    sharedBrowserPromise = chromium
+      .launch({
+        args: ['--no-sandbox'],
+      })
+      .then((browser) => {
+        sharedBrowser = browser;
+        return browser;
+      })
+      .catch((error) => {
+        sharedBrowserPromise = null;
+        throw error;
+      });
+  }
+  return sharedBrowserPromise;
+}
+
+export async function closeSharedBrowser() {
+  if (sharedBrowserPromise) {
+    try {
+      const browser = await sharedBrowserPromise;
+      await browser.close();
+    } finally {
+      sharedBrowser = null;
+      sharedBrowserPromise = null;
+    }
+    return;
+  }
+
+  if (sharedBrowser) {
+    try {
+      await sharedBrowser.close();
+    } finally {
+      sharedBrowser = null;
+      sharedBrowserPromise = null;
+    }
+  }
+}
+
 const FONT_STACK =
   '"JetBrains Mono", "Fira Code", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace';
 const HEADER_FONT_STACK =
@@ -16,15 +60,22 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-export function buildHeaderTemplate({ settings, projectName, fileName }) {
+export function buildHeaderTemplate({ settings, projectName, fileName, filePath }) {
   if (!settings.showProjectHeader && !settings.showFileHeader) return null;
+  const headerFontSize = Math.max(8, settings.fontSize - 1);
   const left = settings.showProjectHeader ? escapeHtml(projectName) : '';
-  const right = settings.showFileHeader ? escapeHtml(fileName) : '';
+  const showPath = settings.showFileHeader && settings.showFilePath;
+  const right = settings.showFileHeader
+    ? escapeHtml(showPath ? filePath || fileName : fileName)
+    : '';
+  const rightStyle = showPath
+    ? 'flex:2 1 66.6667%; min-width:0; white-space:normal; overflow-wrap:anywhere; word-break:break-word; text-align:right;'
+    : 'flex:2 1 66.6667%; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right;';
   return `
-    <div style="width:100%; font-family:${HEADER_FONT_STACK}; font-size:${settings.fontSize}px; padding:7mm 14mm; box-sizing:border-box;">
+    <div style="width:100%; font-family:${HEADER_FONT_STACK}; font-size:${headerFontSize}px; letter-spacing:-0.05em; padding:7mm 14mm; box-sizing:border-box;">
       <div style="display:flex; justify-content:space-between; gap:12px; width:100%;">
-        <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${left}</span>
-        <span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right;">${right}</span>
+        <span style="flex:1 1 33.3333%; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${left}</span>
+        <span style="${rightStyle}">${right}</span>
       </div>
     </div>
   `;
@@ -88,9 +139,7 @@ export function buildFileHtml({ file, theme, fontSize, lineHeight, highlighter }
 }
 
 export async function createPdfRenderer() {
-  const browser = await chromium.launch({
-    args: ['--no-sandbox'],
-  });
+  const browser = await getSharedBrowser();
 
   return {
     async render(html, options = {}) {
@@ -105,7 +154,7 @@ export async function createPdfRenderer() {
       return buffer;
     },
     async close() {
-      await browser.close();
+      // Intentionally no-op: the shared browser is reused across requests.
     },
   };
 }

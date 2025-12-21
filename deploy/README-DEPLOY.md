@@ -48,7 +48,7 @@ sudo npx playwright install-deps chromium
 
 ## 4) Backend env file
 
-Copy `deploy/env/javasourceprinter.env` to `/var/www/java/server/.env` and adjust limits if needed.
+Copy `deploy/env/javasourceprinter.env` to `/var/www/java/server/.env` and adjust limits if needed. `RENDER_CONCURRENCY` controls how many files are rendered in parallel.
 
 ## 5) systemd service
 

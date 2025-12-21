@@ -27,9 +27,11 @@ const elements = {
   lineHeightValue: document.querySelector('#line-height-value'),
   tabsToSpacesToggle: document.querySelector('#tabs-to-spaces-toggle'),
   themeSelect: document.querySelector('#theme-select'),
+  pageBreakSelect: document.querySelector('#page-break-select'),
   outputToggle: document.querySelector('#output-toggle'),
   headerProjectToggle: document.querySelector('#header-project-toggle'),
   headerFileToggle: document.querySelector('#header-file-toggle'),
+  headerPathToggle: document.querySelector('#header-path-toggle'),
   footerPageToggle: document.querySelector('#footer-page-toggle'),
   filterJavadocToggle: document.querySelector('#filter-javadoc-toggle'),
   filterCommentsToggle: document.querySelector('#filter-comments-toggle'),
@@ -56,10 +58,12 @@ const state = {
     lineHeight: 1.5,
     tabsToSpaces: true,
     theme: DEFAULT_THEME_ID,
+    pageBreakMultiple: 1,
     outputMode: 'per-project',
     highlighter: 'highlightjs',
     showProjectHeader: true,
     showFileHeader: true,
+    showFilePath: false,
     showPageNumbers: true,
     removeJavadoc: false,
     removeComments: false,
@@ -105,6 +109,15 @@ function updatePreviewFontSize() {
 
 function updatePreviewLineHeight() {
   elements.codeBlock.style.lineHeight = `${state.settings.lineHeight}`;
+}
+
+function syncHeaderPathToggle() {
+  const canShowPath = state.settings.showFileHeader;
+  elements.headerPathToggle.disabled = !canShowPath;
+  if (!canShowPath) {
+    state.settings.showFilePath = false;
+    elements.headerPathToggle.checked = false;
+  }
 }
 
 function renderFileList() {
@@ -208,10 +221,12 @@ function setSettings({
   lineHeight,
   tabsToSpaces,
   theme,
+  pageBreakMultiple,
   outputMode,
   highlighter,
   showProjectHeader,
   showFileHeader,
+  showFilePath,
   showPageNumbers,
   removeJavadoc,
   removeComments,
@@ -238,6 +253,9 @@ function setSettings({
     applyHighlightTheme(theme);
     renderPreview();
   }
+  if (Number.isFinite(pageBreakMultiple)) {
+    state.settings.pageBreakMultiple = pageBreakMultiple;
+  }
   if (outputMode) {
     state.settings.outputMode = outputMode;
   }
@@ -250,6 +268,14 @@ function setSettings({
   if (typeof showFileHeader === 'boolean') {
     state.settings.showFileHeader = showFileHeader;
   }
+  if (typeof showFilePath === 'boolean') {
+    if (state.settings.showFileHeader) {
+      state.settings.showFilePath = showFilePath;
+    } else {
+      state.settings.showFilePath = false;
+    }
+  }
+  syncHeaderPathToggle();
   if (typeof showPageNumbers === 'boolean') {
     state.settings.showPageNumbers = showPageNumbers;
   }
@@ -600,6 +626,10 @@ elements.themeSelect.addEventListener('change', (event) => {
   setSettings({ theme: event.target.value });
 });
 
+elements.pageBreakSelect.addEventListener('change', (event) => {
+  setSettings({ pageBreakMultiple: Number(event.target.value) });
+});
+
 elements.outputToggle.addEventListener('change', (event) => {
   setSettings({ outputMode: event.target.checked ? 'single' : 'per-project' });
 });
@@ -610,6 +640,10 @@ elements.headerProjectToggle.addEventListener('change', (event) => {
 
 elements.headerFileToggle.addEventListener('change', (event) => {
   setSettings({ showFileHeader: event.target.checked });
+});
+
+elements.headerPathToggle.addEventListener('change', (event) => {
+  setSettings({ showFilePath: event.target.checked });
 });
 
 elements.footerPageToggle.addEventListener('change', (event) => {
@@ -642,11 +676,14 @@ showLanding();
 elements.outputToggle.checked = state.settings.outputMode === 'single';
 elements.headerProjectToggle.checked = state.settings.showProjectHeader;
 elements.headerFileToggle.checked = state.settings.showFileHeader;
+elements.headerPathToggle.checked = state.settings.showFilePath;
 elements.footerPageToggle.checked = state.settings.showPageNumbers;
 elements.lineHeight.value = state.settings.lineHeight;
 elements.lineHeightValue.textContent = `${state.settings.lineHeight}`;
+elements.pageBreakSelect.value = String(state.settings.pageBreakMultiple);
 elements.filterJavadocToggle.checked = state.settings.removeJavadoc;
 elements.filterCommentsToggle.checked = state.settings.removeComments;
 elements.filterBlankLinesToggle.checked = state.settings.collapseBlankLines;
 elements.filterInitComponentsToggle.checked = state.settings.hideInitComponents;
 elements.tabsToSpacesToggle.checked = state.settings.tabsToSpaces;
+syncHeaderPathToggle();

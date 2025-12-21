@@ -6,10 +6,12 @@ export const DEFAULT_SETTINGS = {
   lineHeight: 1.5,
   tabsToSpaces: true,
   theme: DEFAULT_THEME_ID,
+  pageBreakMultiple: 1,
   outputMode: 'per-project',
   highlighter: 'highlightjs',
   showProjectHeader: true,
   showFileHeader: true,
+  showFilePath: false,
   showPageNumbers: true,
   removeJavadoc: false,
   removeComments: false,
@@ -33,6 +35,11 @@ function toBoolean(value, fallback) {
   return fallback;
 }
 
+function toBreakMultiple(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return [1, 2, 4, 8].includes(parsed) ? parsed : fallback;
+}
+
 export function parseSettings(payload) {
   let parsed = {};
   try {
@@ -46,7 +53,11 @@ export function parseSettings(payload) {
   const lineHeight = clampNumber(Number(parsed.lineHeight), 1.2, 2, DEFAULT_SETTINGS.lineHeight);
   const tabsToSpaces = toBoolean(parsed.tabsToSpaces, DEFAULT_SETTINGS.tabsToSpaces);
   const theme = getThemeById(parsed.theme).id;
-  const outputMode = parsed.outputMode === 'per-project' ? 'per-project' : 'single';
+  const pageBreakMultiple = toBreakMultiple(parsed.pageBreakMultiple, DEFAULT_SETTINGS.pageBreakMultiple);
+  const outputMode =
+    parsed.outputMode === 'single' || parsed.outputMode === 'per-project'
+      ? parsed.outputMode
+      : DEFAULT_SETTINGS.outputMode;
   const highlighter = parsed.highlighter === 'highlightjs' ? 'highlightjs' : DEFAULT_SETTINGS.highlighter;
   const showProjectHeader = toBoolean(parsed.showProjectHeader, DEFAULT_SETTINGS.showProjectHeader);
   const showFileHeader = toBoolean(parsed.showFileHeader, DEFAULT_SETTINGS.showFileHeader);
@@ -55,16 +66,19 @@ export function parseSettings(payload) {
   const removeComments = toBoolean(parsed.removeComments, DEFAULT_SETTINGS.removeComments);
   const collapseBlankLines = toBoolean(parsed.collapseBlankLines, DEFAULT_SETTINGS.collapseBlankLines);
   const hideInitComponents = toBoolean(parsed.hideInitComponents, DEFAULT_SETTINGS.hideInitComponents);
+  const showFilePath = showFileHeader ? toBoolean(parsed.showFilePath, DEFAULT_SETTINGS.showFilePath) : false;
 
   return {
     fontSize,
     lineHeight,
     tabsToSpaces,
     theme,
+    pageBreakMultiple,
     outputMode,
     highlighter,
     showProjectHeader,
     showFileHeader,
+    showFilePath,
     showPageNumbers,
     removeJavadoc,
     removeComments,
