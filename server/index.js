@@ -2,7 +2,9 @@ import fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import archiver from 'archiver';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
+import { PassThrough } from 'node:stream';
 import { PDFDocument } from 'pdf-lib';
 import { config } from './config.js';
 import { parseSettings } from './settings.js';
@@ -21,6 +23,8 @@ import {
 
 const app = fastify({ logger: false });
 const RENDER_CONCURRENCY = Math.max(1, config.renderConcurrency);
+const jobs = new Map();
+const JOB_TTL_MS = 5 * 60 * 1000;
 
 if (process.env.NODE_ENV !== 'production') {
   app.register(cors, { origin: true });
@@ -58,7 +62,7 @@ async function renderFilePdf({ file, projectName, settings, renderer, theme, hig
   return renderer.render(html, pdfOptions);
 }
 
-async function mapWithConcurrency(items, limit, mapper) {
+async function mapWithConcurrency(items, limit, mapper, onItemDone) {
   if (items.length === 0) return [];
   const results = new Array(items.length);
   let nextIndex = 0;
@@ -72,6 +76,14 @@ async function mapWithConcurrency(items, limit, mapper) {
         Promise.resolve(mapper(items[currentIndex], currentIndex))
           .then((result) => {
             results[currentIndex] = result;
+            if (onItemDone) {
+              try {
+                onItemDone(result, currentIndex);
+              } catch (error) {
+                reject(error);
+                return;
+              }
+            }
             active -= 1;
             if (nextIndex >= items.length && active === 0) {
               resolve(results);
@@ -109,6 +121,189 @@ function insertPaddingPages(targetDoc, pageCount, pageSize, multiple) {
   }
 }
 
+function createJob() {
+  const job = {
+    id: randomUUID(),
+    status: 'pending',
+    totalFiles: 0,
+    completedFiles: 0,
+    output: null,
+    error: null,
+    clients: new Set(),
+    cleanupTimer: null,
+  };
+  jobs.set(job.id, job);
+  return job;
+}
+
+function getProgressPayload(job) {
+  const total = job.totalFiles;
+  const completed = job.completedFiles;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  return { completed, total, percent };
+}
+
+function sendJobEvent(job, event, payload) {
+  const message = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const client of job.clients) {
+    client.write(message);
+  }
+}
+
+function closeJobClients(job) {
+  for (const client of job.clients) {
+    client.end();
+  }
+  job.clients.clear();
+}
+
+function scheduleJobCleanup(job, delay = JOB_TTL_MS) {
+  if (job.cleanupTimer) {
+    clearTimeout(job.cleanupTimer);
+  }
+  job.cleanupTimer = setTimeout(() => {
+    jobs.delete(job.id);
+  }, delay);
+}
+
+async function buildZipBuffer(entries) {
+  const archive = archiver('zip', { zlib: { level: 9 } });
+  const stream = new PassThrough();
+  const chunks = [];
+
+  return new Promise((resolve, reject) => {
+    archive.on('error', reject);
+    stream.on('error', reject);
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+
+    archive.pipe(stream);
+    entries.forEach((entry) => {
+      archive.append(entry.buffer, { name: entry.name });
+    });
+    archive.finalize();
+  });
+}
+
+async function renderMergedPdf({ fileQueue, settings, renderer, theme, highlighter, onFileDone }) {
+  const merged = await PDFDocument.create();
+  const pdfBuffers = await mapWithConcurrency(
+    fileQueue,
+    RENDER_CONCURRENCY,
+    (item) =>
+      renderFilePdf({
+        file: item.file,
+        projectName: item.projectName,
+        settings,
+        renderer,
+        theme,
+        highlighter,
+      }),
+    () => {
+      if (onFileDone) onFileDone();
+    },
+  );
+
+  for (let index = 0; index < pdfBuffers.length; index += 1) {
+    const pdf = pdfBuffers[index];
+    const { pageCount, pageSize } = await appendPdfPages(merged, pdf);
+    if (index < pdfBuffers.length - 1) {
+      insertPaddingPages(merged, pageCount, pageSize, settings.pageBreakMultiple);
+    }
+  }
+
+  return Buffer.from(await merged.save());
+}
+
+async function runRenderJob(job, uploadInfo, settings) {
+  const { tempDir, zipPath, originalName } = uploadInfo;
+  job.status = 'running';
+
+  try {
+    const projects = await readJavaProjects(zipPath, config);
+    job.totalFiles = projects.reduce((sum, project) => sum + project.files.length, 0);
+    job.completedFiles = 0;
+    sendJobEvent(job, 'progress', getProgressPayload(job));
+
+    const renderer = await createPdfRenderer();
+    try {
+      const { theme, highlighter } = await createRenderContext(settings);
+      const onFileDone = () => {
+        job.completedFiles += 1;
+        sendJobEvent(job, 'progress', getProgressPayload(job));
+      };
+
+      if (settings.outputMode === 'single') {
+        const fileQueue = projects.flatMap((project) =>
+          project.files.map((file) => ({
+            projectName: project.name,
+            file,
+          })),
+        );
+        const pdfBuffer = await renderMergedPdf({
+          fileQueue,
+          settings,
+          renderer,
+          theme,
+          highlighter,
+          onFileDone,
+        });
+        job.output = {
+          buffer: pdfBuffer,
+          filename: `${baseNameWithoutExtension(originalName)}.pdf`,
+          contentType: 'application/pdf',
+        };
+      } else {
+        const entries = [];
+        for (const project of projects) {
+          const fileQueue = project.files.map((file) => ({
+            projectName: project.name,
+            file,
+          }));
+          const pdfBuffer = await renderMergedPdf({
+            fileQueue,
+            settings,
+            renderer,
+            theme,
+            highlighter,
+            onFileDone,
+          });
+          entries.push({
+            name: `${sanitizeFilename(project.name, 'project')}.pdf`,
+            buffer: pdfBuffer,
+          });
+        }
+        const zipBuffer = await buildZipBuffer(entries);
+        job.output = {
+          buffer: zipBuffer,
+          filename: `${baseNameWithoutExtension(originalName)}.zip`,
+          contentType: 'application/zip',
+        };
+      }
+
+      job.status = 'done';
+      sendJobEvent(job, 'progress', getProgressPayload(job));
+      sendJobEvent(job, 'done', {
+        filename: job.output.filename,
+        contentType: job.output.contentType,
+      });
+      closeJobClients(job);
+      scheduleJobCleanup(job);
+    } finally {
+      await renderer.close();
+    }
+  } catch (error) {
+    const message = error instanceof UserError ? error.message : 'Failed to generate PDF.';
+    job.status = 'error';
+    job.error = message;
+    sendJobEvent(job, 'failed', { error: message });
+    closeJobClients(job);
+    scheduleJobCleanup(job);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
 app.post('/api/render', async (request, reply) => {
   const parts = request.parts();
   let uploadInfo = null;
@@ -141,32 +336,19 @@ app.post('/api/render', async (request, reply) => {
       const { theme, highlighter } = await createRenderContext(settings);
 
       if (settings.outputMode === 'single') {
-        const merged = await PDFDocument.create();
         const fileQueue = projects.flatMap((project) =>
           project.files.map((file) => ({
             projectName: project.name,
             file,
           })),
         );
-        const pdfBuffers = await mapWithConcurrency(fileQueue, RENDER_CONCURRENCY, (item) =>
-          renderFilePdf({
-            file: item.file,
-            projectName: item.projectName,
-            settings,
-            renderer,
-            theme,
-            highlighter,
-          }),
-        );
-        for (let index = 0; index < pdfBuffers.length; index += 1) {
-          const pdf = pdfBuffers[index];
-          const { pageCount, pageSize } = await appendPdfPages(merged, pdf);
-          if (index < pdfBuffers.length - 1) {
-            insertPaddingPages(merged, pageCount, pageSize, settings.pageBreakMultiple);
-          }
-        }
-
-        const pdf = Buffer.from(await merged.save());
+        const pdf = await renderMergedPdf({
+          fileQueue,
+          settings,
+          renderer,
+          theme,
+          highlighter,
+        });
         const fileName = `${baseNameWithoutExtension(originalName)}.pdf`;
 
         reply
@@ -183,26 +365,17 @@ app.post('/api/render', async (request, reply) => {
       reply.send(archive);
 
       for (const project of projects) {
-        const merged = await PDFDocument.create();
-        const pdfBuffers = await mapWithConcurrency(project.files, RENDER_CONCURRENCY, (file) =>
-          renderFilePdf({
-            file,
-            projectName: project.name,
-            settings,
-            renderer,
-            theme,
-            highlighter,
-          }),
-        );
-        for (let index = 0; index < pdfBuffers.length; index += 1) {
-          const pdf = pdfBuffers[index];
-          const { pageCount, pageSize } = await appendPdfPages(merged, pdf);
-          if (index < pdfBuffers.length - 1) {
-            insertPaddingPages(merged, pageCount, pageSize, settings.pageBreakMultiple);
-          }
-        }
-
-        const pdf = Buffer.from(await merged.save());
+        const fileQueue = project.files.map((file) => ({
+          projectName: project.name,
+          file,
+        }));
+        const pdf = await renderMergedPdf({
+          fileQueue,
+          settings,
+          renderer,
+          theme,
+          highlighter,
+        });
         const pdfName = `${sanitizeFilename(project.name, 'project')}.pdf`;
         archive.append(pdf, { name: pdfName });
       }
@@ -215,6 +388,93 @@ app.post('/api/render', async (request, reply) => {
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
+});
+
+app.post('/api/render/start', async (request, reply) => {
+  const parts = request.parts();
+  let uploadInfo = null;
+  let settingsPayload = null;
+
+  for await (const part of parts) {
+    if (part.type === 'file' && part.fieldname === 'zip') {
+      if (uploadInfo) {
+        throw new UserError('Only one zip file is allowed.', 400);
+      }
+      uploadInfo = await saveUploadToTemp(part, config);
+    }
+    if (part.type === 'field' && part.fieldname === 'settings') {
+      settingsPayload = part.value;
+    }
+  }
+
+  if (!uploadInfo) {
+    throw new UserError('Zip file is required.', 400);
+  }
+
+  const settings = parseSettings(settingsPayload);
+  const job = createJob();
+
+  reply.code(202).send({ jobId: job.id });
+  void runRenderJob(job, uploadInfo, settings);
+});
+
+app.get('/api/render/progress/:jobId', async (request, reply) => {
+  const job = jobs.get(request.params.jobId);
+  if (!job) {
+    reply.code(404).send({ error: 'Render job not found.' });
+    return;
+  }
+
+  reply.raw.setHeader('Content-Type', 'text/event-stream');
+  reply.raw.setHeader('Cache-Control', 'no-cache');
+  reply.raw.setHeader('Connection', 'keep-alive');
+  reply.raw.setHeader('X-Accel-Buffering', 'no');
+  reply.raw.write('\n');
+  reply.hijack();
+
+  job.clients.add(reply.raw);
+  sendJobEvent(job, 'progress', getProgressPayload(job));
+
+  if (job.status === 'done') {
+    sendJobEvent(job, 'done', {
+      filename: job.output.filename,
+      contentType: job.output.contentType,
+    });
+    reply.raw.end();
+    job.clients.delete(reply.raw);
+    return;
+  }
+
+  if (job.status === 'error') {
+    sendJobEvent(job, 'failed', { error: job.error || 'Render failed.' });
+    reply.raw.end();
+    job.clients.delete(reply.raw);
+    return;
+  }
+
+  request.raw.on('close', () => {
+    job.clients.delete(reply.raw);
+  });
+});
+
+app.get('/api/render/download/:jobId', async (request, reply) => {
+  const job = jobs.get(request.params.jobId);
+  if (!job) {
+    reply.code(404).send({ error: 'Render job not found.' });
+    return;
+  }
+
+  if (job.status !== 'done' || !job.output) {
+    reply.code(409).send({ error: 'Render not complete.' });
+    return;
+  }
+
+  reply
+    .type(job.output.contentType)
+    .header('Content-Disposition', `attachment; filename="${job.output.filename}"`);
+  const buffer = job.output.buffer;
+  jobs.delete(job.id);
+  reply.send(buffer);
 });
 
 app.setErrorHandler((error, request, reply) => {

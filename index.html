@@ -306,6 +306,17 @@
                 <span>Generate &amp; Download</span>
               </button>
               <p id="status" class="mt-2 text-xs text-base-content/70"></p>
+              <div id="progress-wrap" class="mt-3 flex justify-center hidden">
+                <div
+                  id="progress-ring"
+                  class="radial-progress text-primary"
+                  style="--value:0; --size:4.5rem; --thickness:4px;"
+                  role="progressbar"
+                  aria-label="Render progress"
+                >
+                  <span id="progress-value" class="text-xs font-medium">0%</span>
+                </div>
+              </div>
             </div>
           </section>
 

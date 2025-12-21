@@ -39,6 +39,9 @@ const elements = {
   filterInitComponentsToggle: document.querySelector('#filter-initcomponents-toggle'),
   downloadBtn: document.querySelector('#download-btn'),
   status: document.querySelector('#status'),
+  progressWrap: document.querySelector('#progress-wrap'),
+  progressRing: document.querySelector('#progress-ring'),
+  progressValue: document.querySelector('#progress-value'),
   previewTitle: document.querySelector('#preview-title'),
   previewMeta: document.querySelector('#preview-meta'),
   previewWrapper: document.querySelector('#preview-wrapper'),
@@ -72,6 +75,8 @@ const state = {
   },
 };
 
+let activeEventSource = null;
+
 function setStatus(message, isError = false) {
   elements.status.textContent = message;
   elements.status.classList.toggle('text-error', isError);
@@ -95,6 +100,27 @@ function showApp() {
 function setLoading(isLoading) {
   elements.downloadSpinner.classList.toggle('hidden', !isLoading);
   elements.downloadBtn.disabled = isLoading || !state.zipFile || state.projects.length === 0;
+}
+
+function showProgress() {
+  elements.progressWrap.classList.remove('hidden');
+}
+
+function hideProgress() {
+  elements.progressWrap.classList.add('hidden');
+}
+
+function updateProgress(completed, total) {
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  elements.progressRing.style.setProperty('--value', percent);
+  elements.progressValue.textContent = `${percent}%`;
+}
+
+function closeEventSource() {
+  if (activeEventSource) {
+    activeEventSource.close();
+    activeEventSource = null;
+  }
 }
 
 function updateCounts() {
@@ -540,20 +566,23 @@ function handleFileListClick(event) {
 async function handleDownload() {
   if (!state.zipFile) return;
   setLoading(true);
-  setStatus('Generating PDF...');
+  setStatus('Starting render...');
+  showProgress();
+  updateProgress(0, 0);
+  closeEventSource();
 
   try {
     const formData = new FormData();
     formData.append('zip', state.zipFile, state.zipFile.name);
     formData.append('settings', JSON.stringify(state.settings));
 
-    const response = await fetch('/api/render', {
+    const response = await fetch('/api/render/start', {
       method: 'POST',
       body: formData,
     });
 
     if (!response.ok) {
-      let errorMessage = 'Failed to generate PDF.';
+      let errorMessage = 'Failed to start render.';
       try {
         const payload = await response.json();
         if (payload?.error) errorMessage = payload.error;
@@ -563,24 +592,90 @@ async function handleDownload() {
       throw new Error(errorMessage);
     }
 
-    const blob = await response.blob();
-    const fallbackName = getFallbackFilename();
-    const downloadName = getFilenameFromDisposition(response.headers.get('content-disposition')) || fallbackName;
+    const payload = await response.json();
+    const jobId = payload?.jobId;
+    if (!jobId) {
+      throw new Error('Render job was not created.');
+    }
 
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = downloadName;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(link.href);
+    activeEventSource = new EventSource(`/api/render/progress/${jobId}`);
 
-    setStatus('Download started.');
+    activeEventSource.addEventListener('progress', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        updateProgress(data.completed, data.total);
+      } catch (error) {
+        // Ignore parse errors.
+      }
+    });
+
+    activeEventSource.addEventListener('done', async () => {
+      closeEventSource();
+      try {
+        await downloadJob(jobId);
+        setStatus('Download started.');
+      } catch (error) {
+        setStatus(error.message || 'Download failed.', true);
+      } finally {
+        setLoading(false);
+        hideProgress();
+      }
+    });
+
+    activeEventSource.addEventListener('failed', (event) => {
+      let message = 'Render failed.';
+      try {
+        const data = JSON.parse(event.data);
+        if (data?.error) message = data.error;
+      } catch (error) {
+        // Ignore parse errors.
+      }
+      setStatus(message, true);
+      closeEventSource();
+      setLoading(false);
+      hideProgress();
+    });
+
+    activeEventSource.addEventListener('error', () => {
+      setStatus('Lost connection to render progress.', true);
+      closeEventSource();
+      setLoading(false);
+      hideProgress();
+    });
   } catch (error) {
     setStatus(error.message || 'Download failed.', true);
-  } finally {
+    closeEventSource();
     setLoading(false);
+    hideProgress();
+  } finally {
+    // handled in SSE callbacks
   }
+}
+
+async function downloadJob(jobId) {
+  const response = await fetch(`/api/render/download/${jobId}`);
+  if (!response.ok) {
+    let errorMessage = 'Failed to download PDF.';
+    try {
+      const payload = await response.json();
+      if (payload?.error) errorMessage = payload.error;
+    } catch (err) {
+      // Ignore parse errors.
+    }
+    throw new Error(errorMessage);
+  }
+
+  const blob = await response.blob();
+  const fallbackName = getFallbackFilename();
+  const downloadName = getFilenameFromDisposition(response.headers.get('content-disposition')) || fallbackName;
+
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = downloadName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(link.href);
 }
 
 function getFilenameFromDisposition(value) {
