@@ -44,6 +44,8 @@ const elements = {
   filterInitComponentsToggle: document.querySelector('#filter-initcomponents-toggle'),
   filterMainToggle: document.querySelector('#filter-main-toggle'),
   resetSettings: document.querySelector('#reset-settings'),
+  confirmDownloadModal: document.querySelector('#confirm-download-modal'),
+  confirmDownload: document.querySelector('#confirm-download'),
   downloadBtn: document.querySelector('#download-btn'),
   status: document.querySelector('#status'),
   progressWrap: document.querySelector('#progress-wrap'),
@@ -859,7 +861,14 @@ elements.landingDemo.addEventListener('click', handleDemoMode);
 elements.zipInputApp.addEventListener('change', handleAppZipChange);
 elements.changeZip.addEventListener('click', handleChangeZipClick);
 elements.fileList.addEventListener('click', handleFileListClick);
-elements.downloadBtn.addEventListener('click', handleDownload);
+elements.downloadBtn.addEventListener('click', () => {
+  if (elements.downloadBtn.disabled) return;
+  elements.confirmDownloadModal.checked = true;
+});
+elements.confirmDownload.addEventListener('click', () => {
+  elements.confirmDownloadModal.checked = false;
+  handleDownload();
+});
 
 elements.projectLevel.addEventListener('input', async (event) => {
   const projectLevel = Number(event.target.value);

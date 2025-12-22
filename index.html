@@ -11,14 +11,14 @@
       <div class="flex w-full max-w-xl flex-col items-center gap-6 text-center">
         <div class="space-y-3">
           <img src="/logo.png" alt="Java Source Printer" class="mx-auto w-auto" />
-          <p class="text-sm text-base-content/70">Upload a zip file with your Java projects.</p>
+          <p class="text-sm text-base-content/70">Select a zip file with your Java projects to preview <span class="font-semibold">locally</span>.</p>
         </div>
         <div class="flex w-full flex-col items-center gap-2">
           <input id="zip-input" type="file" accept=".zip" class="file-input file-input-bordered w-full max-w-md" />
           <p id="landing-meta" class="text-xs text-base-content/60">No file selected.</p>
         </div>
         <div class="flex flex-wrap justify-center gap-3">
-          <button id="landing-upload" class="btn btn-primary" disabled>Upload</button>
+          <button id="landing-upload" class="btn btn-primary" disabled>Preview</button>
           <button id="landing-demo" class="btn btn-outline">Demo</button>
         </div>
         <p id="landing-status" class="text-xs text-base-content/60"></p>
@@ -191,6 +191,21 @@
       <label class="modal-backdrop" for="reset-modal">Close</label>
     </div>
 
+    <input type="checkbox" id="confirm-download-modal" class="modal-toggle" />
+    <div class="modal" role="dialog">
+      <div class="modal-box max-w-md">
+        <h2 class="text-lg font-semibold">Send zip file to server?</h2>
+        <p class="mt-2 text-sm text-base-content/70">
+          When you confirm, the selected zip file and your settings will be sent to the server to generate the PDFs.
+        </p>
+        <div class="mt-4 flex justify-end gap-2">
+          <label for="confirm-download-modal" class="btn btn-ghost btn-sm">Cancel</label>
+          <button id="confirm-download" class="btn btn-primary btn-sm">Confirm</button>
+        </div>
+      </div>
+      <label class="modal-backdrop" for="confirm-download-modal">Close</label>
+    </div>
+
     <div id="app" class="hidden min-h-screen">
       <header class="px-6 pt-6">
         <div class="mx-auto flex max-w-6xl items-center">
@@ -345,7 +360,7 @@
             <div class="mt-4">
               <button id="download-btn" class="btn btn-primary w-full" disabled>
                 <span id="download-spinner" class="loading loading-spinner hidden"></span>
-                <span>Generate &amp; Download</span>
+                <span>Generate PDF files</span>
               </button>
               <p id="status" class="mt-2 text-xs text-base-content/70"></p>
               <div id="progress-wrap" class="mt-3 flex justify-center hidden">
