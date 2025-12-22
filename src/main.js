@@ -86,6 +86,7 @@ const state = {
   projects: [],
   selectedFileId: null,
   fileIndex: new Map(),
+  isLoading: false,
   settings: { ...DEFAULT_SETTINGS },
 };
 
@@ -130,12 +131,18 @@ function showApp() {
   elements.app.classList.remove('hidden');
 }
 
+function hasIncludedFiles() {
+  return state.projects.some((project) => project.files.some((file) => file.included !== false));
+}
+
+function updateDownloadButtonState() {
+  elements.downloadBtn.disabled = state.isLoading || !state.zipFile || !hasIncludedFiles();
+}
+
 function setLoading(isLoading) {
+  state.isLoading = isLoading;
   elements.downloadSpinner.classList.toggle('hidden', !isLoading);
-  const hasIncluded = state.projects.some((project) =>
-    project.files.some((file) => file.included !== false),
-  );
-  elements.downloadBtn.disabled = isLoading || !state.zipFile || !hasIncluded;
+  updateDownloadButtonState();
 }
 
 function showProgress() {
@@ -264,7 +271,7 @@ function renderFileList() {
       checkbox.checked = file.included !== false;
       checkbox.addEventListener('change', (event) => {
         file.included = event.target.checked;
-        setLoading(false);
+        updateDownloadButtonState();
       });
       checkbox.addEventListener('click', (event) => {
         event.stopPropagation();
@@ -495,7 +502,7 @@ function applyProjects(file, projects) {
   updateCounts();
   renderFileList();
   renderPreview();
-  elements.downloadBtn.disabled = !state.zipFile || state.projects.length === 0;
+  updateDownloadButtonState();
 }
 
 function resetLandingSelection() {
@@ -675,7 +682,7 @@ function handleDemoMode() {
   updateCounts();
   renderFileList();
   renderPreview();
-  elements.downloadBtn.disabled = true;
+  updateDownloadButtonState();
   setStatus('Demo mode: upload a zip to generate PDFs.');
   showApp();
 }

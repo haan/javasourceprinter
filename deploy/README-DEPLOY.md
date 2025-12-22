@@ -50,6 +50,8 @@ sudo npx playwright install-deps chromium
 
 Copy `deploy/env/javasourceprinter.env` to `/var/www/java/server/.env` and adjust limits if needed. `RENDER_CONCURRENCY` controls how many files are rendered in parallel.
 
+`CHROMIUM_NO_SANDBOX=0` keeps the Chromium sandbox enabled (recommended). Set it to `1` only if your server cannot use the sandbox and Playwright fails with a “No usable sandbox” error.
+
 ## 5) systemd service
 
 ```

@@ -3,6 +3,15 @@ function toInt(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function toBool(value, fallback) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+}
+
 export const config = {
   host: process.env.HOST || '127.0.0.1',
   port: toInt(process.env.PORT, 3001),
@@ -12,4 +21,5 @@ export const config = {
   maxFileBytes: toInt(process.env.MAX_FILE_BYTES, 2 * 1024 * 1024),
   maxFileCount: toInt(process.env.MAX_FILE_COUNT, 2000),
   tempPrefix: process.env.TMP_PREFIX || 'java-printer-',
+  chromiumNoSandbox: toBool(process.env.CHROMIUM_NO_SANDBOX, false),
 };

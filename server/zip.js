@@ -40,29 +40,12 @@ export async function readJavaProjects(zipPath, config, projectLevel = 1) {
     if (hasEntrySize && entrySize > config.maxFileBytes) {
       throw new UserError('A Java file exceeds the allowed size.', 413);
     }
-    if (hasEntrySize) {
-      totalBytes += entrySize;
+    const buffer = await readEntryBuffer(entry, config, (chunkLength) => {
+      totalBytes += chunkLength;
       if (totalBytes > config.maxTotalBytes) {
         throw new UserError('Total Java source size exceeds the allowed limit.', 413);
       }
-    }
-
-    const buffer = await entry.buffer();
-    if (buffer.length > config.maxFileBytes) {
-      throw new UserError('A Java file exceeds the allowed size.', 413);
-    }
-
-    if (!hasEntrySize) {
-      totalBytes += buffer.length;
-      if (totalBytes > config.maxTotalBytes) {
-        throw new UserError('Total Java source size exceeds the allowed limit.', 413);
-      }
-    } else if (buffer.length !== entrySize) {
-      totalBytes += buffer.length - entrySize;
-      if (totalBytes > config.maxTotalBytes) {
-        throw new UserError('Total Java source size exceeds the allowed limit.', 413);
-      }
-    }
+    });
 
     const projectName = segments[level - 1];
     const fileName = segments[segments.length - 1];
@@ -94,4 +77,28 @@ export async function readJavaProjects(zipPath, config, projectLevel = 1) {
     .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
 
   return projects;
+}
+
+async function readEntryBuffer(entry, config, onChunk) {
+  const chunks = [];
+  let size = 0;
+  const stream = entry.stream();
+
+  try {
+    for await (const chunk of stream) {
+      size += chunk.length;
+      if (size > config.maxFileBytes) {
+        throw new UserError('A Java file exceeds the allowed size.', 413);
+      }
+      if (onChunk) {
+        onChunk(chunk.length);
+      }
+      chunks.push(chunk);
+    }
+  } catch (error) {
+    stream.destroy();
+    throw error;
+  }
+
+  return Buffer.concat(chunks, size);
 }

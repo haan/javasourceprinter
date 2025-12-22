@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { DEFAULT_FONT_ID, getFontById } from '../shared/fonts.js';
+import { config } from './config.js';
 import { getHighlighter } from './highlighters/index.js';
 import { loadTheme } from './theme-loader.js';
 
@@ -164,10 +165,12 @@ async function getEmbeddedFontCss(fontFamilyId) {
 async function getSharedBrowser() {
   if (sharedBrowser) return sharedBrowser;
   if (!sharedBrowserPromise) {
+    const launchOptions = {};
+    if (config.chromiumNoSandbox) {
+      launchOptions.args = ['--no-sandbox'];
+    }
     sharedBrowserPromise = chromium
-      .launch({
-        args: ['--no-sandbox'],
-      })
+      .launch(launchOptions)
       .then((browser) => {
         sharedBrowser = browser;
         return browser;
