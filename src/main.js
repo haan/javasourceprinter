@@ -9,6 +9,8 @@ import { applyFilters } from '../shared/filters.js';
 
 hljs.registerLanguage('java', java);
 
+const SETTINGS_STORAGE_KEY = 'jsp.settings';
+
 const elements = {
   landing: document.querySelector('#landing'),
   app: document.querySelector('#app'),
@@ -41,6 +43,7 @@ const elements = {
   filterBlankLinesToggle: document.querySelector('#filter-blanklines-toggle'),
   filterInitComponentsToggle: document.querySelector('#filter-initcomponents-toggle'),
   filterMainToggle: document.querySelector('#filter-main-toggle'),
+  resetSettings: document.querySelector('#reset-settings'),
   downloadBtn: document.querySelector('#download-btn'),
   status: document.querySelector('#status'),
   progressWrap: document.querySelector('#progress-wrap'),
@@ -53,6 +56,27 @@ const elements = {
   downloadSpinner: document.querySelector('#download-spinner'),
 };
 
+const DEFAULT_SETTINGS = {
+  fontSize: 12,
+  lineHeight: 1.5,
+  projectLevel: 1,
+  tabsToSpaces: true,
+  theme: DEFAULT_THEME_ID,
+  fontFamily: DEFAULT_FONT_ID,
+  pageBreakMultiple: 1,
+  outputMode: 'per-project',
+  highlighter: 'highlightjs',
+  showProjectHeader: true,
+  showFileHeader: true,
+  showFilePath: false,
+  showPageNumbers: true,
+  removeJavadoc: false,
+  removeComments: false,
+  collapseBlankLines: true,
+  hideInitComponents: true,
+  hideMain: true,
+};
+
 const state = {
   zipFile: null,
   pendingFile: null,
@@ -60,29 +84,29 @@ const state = {
   projects: [],
   selectedFileId: null,
   fileIndex: new Map(),
-  settings: {
-    fontSize: 12,
-    lineHeight: 1.5,
-    projectLevel: 1,
-    tabsToSpaces: true,
-    theme: DEFAULT_THEME_ID,
-    fontFamily: DEFAULT_FONT_ID,
-    pageBreakMultiple: 1,
-    outputMode: 'per-project',
-    highlighter: 'highlightjs',
-    showProjectHeader: true,
-    showFileHeader: true,
-    showFilePath: false,
-    showPageNumbers: true,
-    removeJavadoc: false,
-    removeComments: false,
-    collapseBlankLines: true,
-    hideInitComponents: true,
-    hideMain: true,
-  },
+  settings: { ...DEFAULT_SETTINGS },
 };
 
 let activeEventSource = null;
+
+function loadStoredSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveStoredSettings() {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(state.settings));
+  } catch (error) {
+    // Ignore localStorage failures.
+  }
+}
 
 function setStatus(message, isError = false) {
   elements.status.textContent = message;
@@ -156,6 +180,29 @@ function syncHeaderPathToggle() {
     state.settings.showFilePath = false;
     elements.headerPathToggle.checked = false;
   }
+}
+
+function applySettingsToControls() {
+  elements.projectLevel.value = state.settings.projectLevel;
+  elements.fontSize.value = state.settings.fontSize;
+  elements.fontSizeValue.textContent = `${state.settings.fontSize} px`;
+  elements.lineHeight.value = state.settings.lineHeight;
+  elements.lineHeightValue.textContent = `${state.settings.lineHeight}`;
+  elements.tabsToSpacesToggle.checked = state.settings.tabsToSpaces;
+  elements.themeSelect.value = state.settings.theme;
+  elements.fontSelect.value = state.settings.fontFamily;
+  elements.pageBreakSelect.value = String(state.settings.pageBreakMultiple);
+  elements.outputToggle.checked = state.settings.outputMode === 'single';
+  elements.headerProjectToggle.checked = state.settings.showProjectHeader;
+  elements.headerFileToggle.checked = state.settings.showFileHeader;
+  elements.headerPathToggle.checked = state.settings.showFilePath;
+  elements.footerPageToggle.checked = state.settings.showPageNumbers;
+  elements.filterJavadocToggle.checked = state.settings.removeJavadoc;
+  elements.filterCommentsToggle.checked = state.settings.removeComments;
+  elements.filterBlankLinesToggle.checked = state.settings.collapseBlankLines;
+  elements.filterInitComponentsToggle.checked = state.settings.hideInitComponents;
+  elements.filterMainToggle.checked = state.settings.hideMain;
+  syncHeaderPathToggle();
 }
 
 function renderFileList() {
@@ -353,6 +400,8 @@ function setSettings({
   if (needsPreviewRefresh) {
     renderPreview();
   }
+
+  saveStoredSettings();
 }
 
 async function parseZip(file, projectLevel = state.settings.projectLevel) {
@@ -827,29 +876,21 @@ elements.filterMainToggle.addEventListener('change', (event) => {
   setSettings({ hideMain: event.target.checked });
 });
 
+elements.resetSettings.addEventListener('click', () => {
+  state.settings = { ...DEFAULT_SETTINGS };
+  setSettings(state.settings);
+  applySettingsToControls();
+  document.querySelector('#reset-modal').checked = false;
+});
+
 setupThemeOptions();
 setupFontOptions();
-applyHighlightTheme(state.settings.theme);
-updatePreviewFontSize();
-updatePreviewLineHeight();
-updatePreviewFontFamily();
+const storedSettings = loadStoredSettings();
+if (storedSettings) {
+  state.settings = { ...DEFAULT_SETTINGS, ...storedSettings };
+}
+setSettings(state.settings);
+applySettingsToControls();
 setStatus('Upload a zip to begin.');
 setLandingStatus('Select a zip or try the demo.');
 showLanding();
-elements.projectLevel.value = state.settings.projectLevel;
-elements.outputToggle.checked = state.settings.outputMode === 'single';
-elements.headerProjectToggle.checked = state.settings.showProjectHeader;
-elements.headerFileToggle.checked = state.settings.showFileHeader;
-elements.headerPathToggle.checked = state.settings.showFilePath;
-elements.footerPageToggle.checked = state.settings.showPageNumbers;
-elements.lineHeight.value = state.settings.lineHeight;
-elements.lineHeightValue.textContent = `${state.settings.lineHeight}`;
-elements.pageBreakSelect.value = String(state.settings.pageBreakMultiple);
-elements.fontSelect.value = state.settings.fontFamily;
-elements.filterJavadocToggle.checked = state.settings.removeJavadoc;
-elements.filterCommentsToggle.checked = state.settings.removeComments;
-elements.filterBlankLinesToggle.checked = state.settings.collapseBlankLines;
-elements.filterInitComponentsToggle.checked = state.settings.hideInitComponents;
-elements.filterMainToggle.checked = state.settings.hideMain;
-elements.tabsToSpacesToggle.checked = state.settings.tabsToSpaces;
-syncHeaderPathToggle();

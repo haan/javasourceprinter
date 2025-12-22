@@ -176,6 +176,21 @@
       <label class="modal-backdrop" for="help-modal">Close</label>
     </div>
 
+    <input type="checkbox" id="reset-modal" class="modal-toggle" />
+    <div class="modal" role="dialog">
+      <div class="modal-box max-w-sm">
+        <h2 class="text-lg font-semibold">Reset settings?</h2>
+        <p class="mt-2 text-sm text-base-content/70">
+          This will restore all settings to their defaults.
+        </p>
+        <div class="mt-4 flex justify-end gap-2">
+          <label for="reset-modal" class="btn btn-ghost btn-sm">Cancel</label>
+          <button id="reset-settings" class="btn btn-primary btn-sm">Reset</button>
+        </div>
+      </div>
+      <label class="modal-backdrop" for="reset-modal">Close</label>
+    </div>
+
     <div id="app" class="hidden min-h-screen">
       <header class="px-6 pt-6">
         <div class="mx-auto flex max-w-6xl items-center">
@@ -216,6 +231,9 @@
         <div class="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <section class="rounded-box border border-base-300 bg-base-100 p-5 shadow">
             <div class="space-y-3">
+              <div class="flex justify-end">
+                <label for="reset-modal" class="btn btn-xs btn-outline cursor-pointer">Reset to defaults</label>
+              </div>
               <div class="collapse collapse-arrow bg-base-200">
                 <input type="radio" name="settings-accordion" />
                 <div class="collapse-title text-sm font-semibold">Input</div>

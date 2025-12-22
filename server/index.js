@@ -208,11 +208,28 @@ async function renderMergedPdf({ fileQueue, settings, renderer, theme, highlight
     },
   );
 
+  let currentProject = null;
+  let projectPages = 0;
+  let lastPageSize = null;
+
   for (let index = 0; index < pdfBuffers.length; index += 1) {
+    const { projectName } = fileQueue[index];
+    if (currentProject === null) {
+      currentProject = projectName;
+    }
+
+    if (projectName !== currentProject) {
+      insertPaddingPages(merged, projectPages, lastPageSize, settings.pageBreakMultiple);
+      currentProject = projectName;
+      projectPages = 0;
+      lastPageSize = null;
+    }
+
     const pdf = pdfBuffers[index];
     const { pageCount, pageSize } = await appendPdfPages(merged, pdf);
-    if (index < pdfBuffers.length - 1) {
-      insertPaddingPages(merged, pageCount, pageSize, settings.pageBreakMultiple);
+    projectPages += pageCount;
+    if (pageSize) {
+      lastPageSize = pageSize;
     }
   }
 
