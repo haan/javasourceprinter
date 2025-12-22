@@ -14,11 +14,12 @@ export async function saveUploadToTemp(filePart, config) {
   return { tempDir, zipPath, originalName: filePart.filename || 'upload.zip' };
 }
 
-export async function readJavaProjects(zipPath, config) {
+export async function readJavaProjects(zipPath, config, projectLevel = 1) {
   const directory = await unzipper.Open.file(zipPath);
   const projectMap = new Map();
   let totalBytes = 0;
   let fileCount = 0;
+  const level = Math.min(3, Math.max(1, Number.parseInt(projectLevel, 10) || 1));
 
   for (const entry of directory.files) {
     if (entry.type !== 'File') continue;
@@ -27,7 +28,7 @@ export async function readJavaProjects(zipPath, config) {
     if (normalizedPath.startsWith('/') || normalizedPath.includes('..')) continue;
 
     const segments = normalizedPath.split('/').filter(Boolean);
-    if (segments.length < 2) continue;
+    if (segments.length < level + 1) continue;
 
     fileCount += 1;
     if (fileCount > config.maxFileCount) {
@@ -63,7 +64,7 @@ export async function readJavaProjects(zipPath, config) {
       }
     }
 
-    const projectName = segments[0];
+    const projectName = segments[level - 1];
     const fileName = segments[segments.length - 1];
     const content = buffer.toString('utf8');
 
@@ -79,7 +80,7 @@ export async function readJavaProjects(zipPath, config) {
   }
 
   if (fileCount === 0) {
-    throw new UserError('No .java files found at the top-level projects.', 422);
+    throw new UserError(`No .java files found at project level ${level}.`, 422);
   }
 
   const projects = Array.from(projectMap.entries())

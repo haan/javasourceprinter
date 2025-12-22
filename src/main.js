@@ -22,6 +22,7 @@ const elements = {
   changeZip: document.querySelector('#change-zip'),
   fileCount: document.querySelector('#file-count'),
   fileList: document.querySelector('#file-list'),
+  projectLevel: document.querySelector('#project-level'),
   fontSize: document.querySelector('#font-size'),
   fontSizeValue: document.querySelector('#font-size-value'),
   lineHeight: document.querySelector('#line-height'),
@@ -62,6 +63,7 @@ const state = {
   settings: {
     fontSize: 12,
     lineHeight: 1.5,
+    projectLevel: 1,
     tabsToSpaces: true,
     theme: DEFAULT_THEME_ID,
     fontFamily: DEFAULT_FONT_ID,
@@ -254,6 +256,7 @@ function renderPreview() {
 }
 
 function setSettings({
+  projectLevel,
   fontSize,
   lineHeight,
   tabsToSpaces,
@@ -273,6 +276,9 @@ function setSettings({
   hideMain,
 }) {
   let needsPreviewRefresh = false;
+  if (Number.isFinite(projectLevel)) {
+    state.settings.projectLevel = projectLevel;
+  }
   if (fontSize) {
     state.settings.fontSize = fontSize;
     elements.fontSizeValue.textContent = `${fontSize} px`;
@@ -348,9 +354,10 @@ function setSettings({
   }
 }
 
-async function parseZip(file) {
+async function parseZip(file, projectLevel = state.settings.projectLevel) {
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const projectMap = new Map();
+  const level = Math.min(3, Math.max(1, Number(projectLevel) || 1));
 
   const entries = Object.values(zip.files);
   for (const entry of entries) {
@@ -359,9 +366,9 @@ async function parseZip(file) {
 
     const normalizedPath = entry.name.replace(/\\/g, '/');
     const segments = normalizedPath.split('/').filter(Boolean);
-    if (segments.length < 2) continue;
+    if (segments.length < level + 1) continue;
 
-    const projectName = segments[0];
+    const projectName = segments[level - 1];
     const fileName = segments[segments.length - 1];
     const content = await entry.async('text');
 
@@ -516,12 +523,12 @@ async function handleLandingUpload() {
   elements.landingUpload.disabled = true;
   setLandingStatus('Reading zip file...');
   try {
-    const projects = await parseZip(state.pendingFile);
+    const projects = await parseZip(state.pendingFile, state.settings.projectLevel);
     applyProjects(state.pendingFile, projects);
     showApp();
     setLandingStatus('');
     if (projects.length === 0) {
-      setStatus('No .java files found at the top-level projects.');
+      setStatus(`No .java files found at project level ${state.settings.projectLevel}.`);
     } else {
       setStatus('Preview ready.');
     }
@@ -539,10 +546,10 @@ async function handleAppZipChange(event) {
   setLoading(true);
   setStatus('Reading zip file...');
   try {
-    const projects = await parseZip(file);
+    const projects = await parseZip(file, state.settings.projectLevel);
     applyProjects(file, projects);
     if (projects.length === 0) {
-      setStatus('No .java files found at the top-level projects.');
+      setStatus(`No .java files found at project level ${state.settings.projectLevel}.`);
     } else {
       setStatus('Preview ready.');
     }
@@ -734,6 +741,27 @@ elements.changeZip.addEventListener('click', handleChangeZipClick);
 elements.fileList.addEventListener('click', handleFileListClick);
 elements.downloadBtn.addEventListener('click', handleDownload);
 
+elements.projectLevel.addEventListener('input', async (event) => {
+  const projectLevel = Number(event.target.value);
+  setSettings({ projectLevel });
+  if (!state.zipFile) return;
+  setLoading(true);
+  setStatus('Reading zip file...');
+  try {
+    const projects = await parseZip(state.zipFile, state.settings.projectLevel);
+    applyProjects(state.zipFile, projects);
+    if (projects.length === 0) {
+      setStatus(`No .java files found at project level ${state.settings.projectLevel}.`);
+    } else {
+      setStatus('Preview ready.');
+    }
+  } catch (error) {
+    setStatus('Failed to read the zip. Please check the file format.', true);
+  } finally {
+    setLoading(false);
+  }
+});
+
 elements.fontSize.addEventListener('input', (event) => {
   setSettings({ fontSize: Number(event.target.value) });
 });
@@ -807,6 +835,7 @@ updatePreviewFontFamily();
 setStatus('Upload a zip to begin.');
 setLandingStatus('Select a zip or try the demo.');
 showLanding();
+elements.projectLevel.value = state.settings.projectLevel;
 elements.outputToggle.checked = state.settings.outputMode === 'single';
 elements.headerProjectToggle.checked = state.settings.showProjectHeader;
 elements.headerFileToggle.checked = state.settings.showFileHeader;

@@ -224,7 +224,7 @@ async function runRenderJob(job, uploadInfo, settings) {
   job.status = 'running';
 
   try {
-    const projects = await readJavaProjects(zipPath, config);
+    const projects = await readJavaProjects(zipPath, config, settings.projectLevel);
     job.totalFiles = projects.reduce((sum, project) => sum + project.files.length, 0);
     job.completedFiles = 0;
     sendJobEvent(job, 'progress', getProgressPayload(job));
@@ -335,7 +335,7 @@ app.post('/api/render', async (request, reply) => {
   const { tempDir, zipPath, originalName } = uploadInfo;
 
   try {
-    const projects = await readJavaProjects(zipPath, config);
+    const projects = await readJavaProjects(zipPath, config, settings.projectLevel);
     const renderer = await createPdfRenderer();
 
     try {

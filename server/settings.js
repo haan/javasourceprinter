@@ -5,6 +5,7 @@ import { clampNumber } from './utils.js';
 export const DEFAULT_SETTINGS = {
   fontSize: 12,
   lineHeight: 1.5,
+  projectLevel: 1,
   tabsToSpaces: true,
   theme: DEFAULT_THEME_ID,
   fontFamily: DEFAULT_FONT_ID,
@@ -54,6 +55,7 @@ export function parseSettings(payload) {
 
   const fontSize = clampNumber(Number(parsed.fontSize), 9, 18, DEFAULT_SETTINGS.fontSize);
   const lineHeight = clampNumber(Number(parsed.lineHeight), 1.2, 2, DEFAULT_SETTINGS.lineHeight);
+  const projectLevel = clampNumber(Number.parseInt(parsed.projectLevel, 10), 1, 3, DEFAULT_SETTINGS.projectLevel);
   const tabsToSpaces = toBoolean(parsed.tabsToSpaces, DEFAULT_SETTINGS.tabsToSpaces);
   const theme = getThemeById(parsed.theme).id;
   const fontFamily = getFontById(parsed.fontFamily).id;
@@ -76,6 +78,7 @@ export function parseSettings(payload) {
   return {
     fontSize,
     lineHeight,
+    projectLevel,
     tabsToSpaces,
     theme,
     fontFamily,
