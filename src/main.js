@@ -44,6 +44,9 @@ const elements = {
   filterInitComponentsToggle: document.querySelector('#filter-initcomponents-toggle'),
   filterMainToggle: document.querySelector('#filter-main-toggle'),
   resetSettings: document.querySelector('#reset-settings'),
+  helpModal: document.querySelector('#help-modal'),
+  privacyModal: document.querySelector('#privacy-modal'),
+  modalLinks: document.querySelectorAll('[data-modal-link]'),
   confirmDownloadModal: document.querySelector('#confirm-download-modal'),
   confirmDownload: document.querySelector('#confirm-download'),
   downloadBtn: document.querySelector('#download-btn'),
@@ -91,6 +94,41 @@ const state = {
 };
 
 let activeEventSource = null;
+
+const modalMap = {
+  help: elements.helpModal,
+  privacy: elements.privacyModal,
+};
+
+function openModal(key, updateHash = true) {
+  const checkbox = modalMap[key];
+  if (!checkbox) return;
+  if (elements.confirmDownloadModal?.checked) {
+    elements.confirmDownloadModal.checked = false;
+  }
+  checkbox.checked = true;
+  if (updateHash) {
+    const hash = `#${key}`;
+    if (location.hash !== hash) {
+      location.hash = hash;
+    }
+  }
+}
+
+function closeAllModals() {
+  Object.values(modalMap).forEach((checkbox) => {
+    if (checkbox) checkbox.checked = false;
+  });
+}
+
+function syncModalFromHash() {
+  const key = location.hash.replace('#', '');
+  if (modalMap[key]) {
+    openModal(key, false);
+    return;
+  }
+  closeAllModals();
+}
 
 function loadStoredSettings() {
   try {
@@ -183,6 +221,25 @@ function updatePreviewLineHeight() {
 function updatePreviewFontFamily() {
   const font = getFontById(state.settings.fontFamily);
   elements.codeBlock.style.fontFamily = font.css;
+}
+
+async function reloadZipProjects() {
+  if (!state.zipFile) return;
+  setLoading(true);
+  setStatus('Reading zip file...');
+  try {
+    const projects = await parseZip(state.zipFile, state.settings.projectLevel);
+    applyProjects(state.zipFile, projects);
+    if (projects.length === 0) {
+      setStatus(`No .java files found at project level ${state.settings.projectLevel}.`);
+    } else {
+      setStatus('Preview ready.');
+    }
+  } catch (error) {
+    setStatus('Failed to read the zip. Please check the file format.', true);
+  } finally {
+    setLoading(false);
+  }
 }
 
 function syncHeaderPathToggle() {
@@ -548,7 +605,7 @@ function getDemoProjects() {
           name: 'Startup.java',
           path: 'demo-app/src/Startup.java',
           content: `package demo.app;\n\npublic final class Startup {\n  private Startup() {}\n\n  public static boolean ready() {\n    return true;\n  }\n}\n`,
-          included: true,
+          included: false,
         },
       ],
     },
@@ -605,7 +662,7 @@ function getDemoProjects() {
           name: 'MainFrame.java',
           path: 'demo-ui/src/MainFrame.java',
           content: `package demo.ui;\n\npublic class MainFrame {\n  private void initComponents() {\n    // UI components would be configured here.\n    javax.swing.JButton button = new javax.swing.JButton();\n    button.setText(\"OK\");\n  }\n}\n`,
-          included: true,
+          included: false,
         },
         {
           name: 'Theme.java',
@@ -880,22 +937,7 @@ elements.confirmDownload.addEventListener('click', () => {
 elements.projectLevel.addEventListener('input', async (event) => {
   const projectLevel = Number(event.target.value);
   setSettings({ projectLevel });
-  if (!state.zipFile) return;
-  setLoading(true);
-  setStatus('Reading zip file...');
-  try {
-    const projects = await parseZip(state.zipFile, state.settings.projectLevel);
-    applyProjects(state.zipFile, projects);
-    if (projects.length === 0) {
-      setStatus(`No .java files found at project level ${state.settings.projectLevel}.`);
-    } else {
-      setStatus('Preview ready.');
-    }
-  } catch (error) {
-    setStatus('Failed to read the zip. Please check the file format.', true);
-  } finally {
-    setLoading(false);
-  }
+  await reloadZipProjects();
 });
 
 elements.fontSize.addEventListener('input', (event) => {
@@ -967,7 +1009,30 @@ elements.resetSettings.addEventListener('click', () => {
   setSettings(state.settings);
   applySettingsToControls();
   document.querySelector('#reset-modal').checked = false;
+  void reloadZipProjects();
 });
+
+elements.modalLinks.forEach((link) => {
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    const key = link.dataset.modalLink;
+    openModal(key);
+  });
+});
+
+elements.helpModal.addEventListener('change', () => {
+  if (!elements.helpModal.checked && location.hash === '#help') {
+    history.replaceState(null, '', `${location.pathname}${location.search}`);
+  }
+});
+
+elements.privacyModal.addEventListener('change', () => {
+  if (!elements.privacyModal.checked && location.hash === '#privacy') {
+    history.replaceState(null, '', `${location.pathname}${location.search}`);
+  }
+});
+
+window.addEventListener('hashchange', syncModalFromHash);
 
 setupThemeOptions();
 setupFontOptions();
@@ -977,6 +1042,7 @@ if (storedSettings) {
 }
 setSettings(state.settings);
 applySettingsToControls();
+syncModalFromHash();
 setStatus('Upload a zip to begin.');
 setLandingStatus('Select a zip or try the demo.');
 showLanding();

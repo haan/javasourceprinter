@@ -30,8 +30,8 @@
           target="_blank"
           rel="noreferrer"
         >GitHub</a>
-        <label for="help-modal" class="link link-primary text-xs cursor-pointer">Help</label>
-        <label for="privacy-modal" class="link link-primary text-xs cursor-pointer">Data privacy</label>
+        <a href="#help" data-modal-link="help" class="link link-primary text-xs">Help</a>
+        <a href="#privacy" data-modal-link="privacy" class="link link-primary text-xs">Data privacy</a>
       </div>
     </main>
 
@@ -58,11 +58,11 @@
             <ol class="list-decimal space-y-2 pl-5">
               <li>
                 Your browser reads the zip file locally to display a preview of Java files. This preview happens entirely on
-                your device and is not uploaded until you click "Generate &amp; Download".
+                your device and is not uploaded until you click "Generate PDF files" and confirm.
               </li>
               <li>
-                When you click "Generate &amp; Download", the zip file and your selected settings are sent to the server
-                over an encrypted HTTPS connection.
+                When you confirm "Generate PDF files", the zip file, your selected settings, and the list of files you
+                selected are sent to the server over an encrypted HTTPS connection.
               </li>
               <li>
                 The server saves the upload into a temporary working directory, extracts Java source files, applies the
@@ -92,6 +92,7 @@
               <li>Temporary files exist only for the duration of the request and are deleted once processing completes.</li>
               <li>Generated PDFs are streamed to you and are not stored on the server after delivery.</li>
               <li>Processing is performed on the server itself; files are not uploaded to external processing providers.</li>
+              <li>Selected settings are stored locally in your browser (localStorage) to remember your preferences.</li>
               <li>
                 Standard web server access logs may record request metadata (such as IP address, timestamp, and URL) for
                 security and operational purposes. These logs do not contain the content of uploaded files.
@@ -131,12 +132,16 @@
           <section class="space-y-3">
             <h3 class="text-base font-semibold text-base-content">Required structure</h3>
             <p>
-              The zip file must contain one or more top-level folders. Each top-level folder is treated as a Java
-              project and becomes the project name in the preview and PDFs.
+              The zip file must contain one or more project folders. Each project folder becomes the project name in the
+              preview and PDFs.
             </p>
             <p>
               Java source files can be in any subfolder under each project. Only files ending with
               <span class="font-medium">.java</span> are processed.
+            </p>
+            <p>
+              If your projects are nested below the top level, set the <span class="font-medium">Project folder level</span>
+              slider in the Input section to match where the project folders live (1 = top level, 2 = one folder deeper).
             </p>
           </section>
 
@@ -167,7 +172,8 @@
           <section class="space-y-3">
             <h3 class="text-base font-semibold text-base-content">Notes</h3>
             <ul class="list-disc space-y-2 pl-5">
-              <li>The folder name at the top level is used as the project name.</li>
+              <li>The folder name at the selected project level is used as the project name.</li>
+              <li>Use the checkbox next to a file to exclude it from the generated PDFs.</li>
               <li>Non-Java files are ignored.</li>
             </ul>
           </section>
@@ -196,7 +202,8 @@
       <div class="modal-box max-w-md">
         <h2 class="text-lg font-semibold">Send zip file to server?</h2>
         <p class="mt-2 text-sm text-base-content/70">
-          When you confirm, the selected zip file and your settings will be sent to the server to generate the PDFs.
+          Confirming will send the selected zip and your settings to the server to generate the PDFs.
+          See the <a href="#privacy" data-modal-link="privacy" class="link link-primary">data privacy</a> note.
         </p>
         <div class="mt-4 flex justify-end gap-2">
           <label for="confirm-download-modal" class="btn btn-ghost btn-sm">Cancel</label>
@@ -395,6 +402,16 @@
           </section>
         </div>
       </main>
+      <div class="fixed bottom-6 right-6 flex items-center gap-4">
+        <a
+          href="https://github.com/haan/javasourceprinter"
+          class="link link-primary text-xs"
+          target="_blank"
+          rel="noreferrer"
+        >GitHub</a>
+        <a href="#help" data-modal-link="help" class="link link-primary text-xs">Help</a>
+        <a href="#privacy" data-modal-link="privacy" class="link link-primary text-xs">Data privacy</a>
+      </div>
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>
