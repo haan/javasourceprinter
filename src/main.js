@@ -168,14 +168,14 @@ function renderFileList() {
   }
 
   const table = document.createElement('table');
-  table.className = 'table table-pin-rows table-pin-cols w-full table-xs sm:table-sm';
+  table.className = 'table table-pin-rows table-pin-cols w-full table-xs sm:table-sm table-fixed';
 
   const thead = document.createElement('thead');
   thead.innerHTML = `
     <tr>
-      <th>Project</th>
-      <th>File</th>
-      <th>Path</th>
+      <th class="w-1/4">Project</th>
+      <th class="w-1/4">File</th>
+      <th class="w-1/2">Path</th>
     </tr>
   `;
 
@@ -207,7 +207,8 @@ function renderFileList() {
       }
 
       const pathCell = document.createElement('td');
-      pathCell.className = 'text-xs text-base-content/60';
+      pathCell.className = 'text-xs text-base-content/60 truncate';
+      pathCell.title = file.path;
       pathCell.textContent = file.path;
       if (isSelected) {
         pathCell.classList.add('bg-primary/10');
