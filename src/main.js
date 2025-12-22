@@ -130,7 +130,10 @@ function showApp() {
 
 function setLoading(isLoading) {
   elements.downloadSpinner.classList.toggle('hidden', !isLoading);
-  elements.downloadBtn.disabled = isLoading || !state.zipFile || state.projects.length === 0;
+  const hasIncluded = state.projects.some((project) =>
+    project.files.some((file) => file.included !== false),
+  );
+  elements.downloadBtn.disabled = isLoading || !state.zipFile || !hasIncluded;
 }
 
 function showProgress() {
@@ -248,7 +251,37 @@ function renderFileList() {
       }
 
       const fileCell = document.createElement('td');
-      fileCell.textContent = file.name;
+      fileCell.className = 'align-top';
+
+      const label = document.createElement('label');
+      label.className = 'label cursor-pointer justify-start gap-2';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'checkbox checkbox-xs checkbox-primary';
+      checkbox.checked = file.included !== false;
+      checkbox.addEventListener('change', (event) => {
+        file.included = event.target.checked;
+        setLoading(false);
+      });
+      checkbox.addEventListener('click', (event) => {
+        event.stopPropagation();
+      });
+
+      label.addEventListener('click', (event) => {
+        if (event.target !== checkbox) {
+          event.preventDefault();
+        }
+      });
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'label-text truncate';
+      nameSpan.textContent = file.name;
+      nameSpan.title = file.name;
+
+      label.appendChild(checkbox);
+      label.appendChild(nameSpan);
+      fileCell.appendChild(label);
       if (isSelected) {
         fileCell.classList.add('bg-primary/10');
       }
@@ -430,6 +463,7 @@ async function parseZip(file, projectLevel = state.settings.projectLevel) {
       name: fileName,
       path: normalizedPath,
       content,
+      included: true,
     });
   }
 
@@ -493,16 +527,19 @@ function getDemoProjects() {
           name: 'Main.java',
           path: 'demo-app/src/Main.java',
           content: `package demo.app;\n\npublic class Main {\n  /**\n   * Entry point for demo-app.\n   */\n  public static void main(String[] args) {\n    System.out.println(\"Hello from demo-app\");\n  }\n}\n`,
+          included: true,
         },
         {
           name: 'Config.java',
           path: 'demo-app/src/Config.java',
           content: `package demo.app;\n\npublic final class Config {\n  public static final String ENV = \"dev\";\n\n  // Feature flags\n  public static final boolean ENABLE_METRICS = true;\n\n  /*\n   * Multi-line comment to demonstrate filtering.\n   */\n  public static final int MAX_RETRIES = 3;\n\n  private Config() {}\n}\n`,
+          included: true,
         },
         {
           name: 'Startup.java',
           path: 'demo-app/src/Startup.java',
           content: `package demo.app;\n\npublic final class Startup {\n  private Startup() {}\n\n  public static boolean ready() {\n    return true;\n  }\n}\n`,
+          included: true,
         },
       ],
     },
@@ -513,16 +550,19 @@ function getDemoProjects() {
           name: 'MathUtils.java',
           path: 'demo-lib/src/MathUtils.java',
           content: `package demo.lib;\n\npublic final class MathUtils {\n\tprivate MathUtils() {}\n\n\tpublic static int multiply(int a, int b) {\n\t\treturn a * b;\n\t}\n}\n`,
+          included: true,
         },
         {
           name: 'CollectionUtils.java',
           path: 'demo-lib/src/CollectionUtils.java',
           content: `package demo.lib;\n\nimport java.util.List;\n\npublic final class CollectionUtils {\n  private CollectionUtils() {}\n\n  public static boolean isEmpty(List<?> list) {\n    return list == null || list.isEmpty();\n  }\n}\n`,
+          included: true,
         },
         {
           name: 'Library.java',
           path: 'demo-lib/src/Library.java',
           content: `package demo.lib;\n\npublic class Library {\n  public String version() {\n    return \"1.0.0\";\n  }\n}\n`,
+          included: true,
         },
       ],
     },
@@ -533,16 +573,19 @@ function getDemoProjects() {
           name: 'ApiClient.java',
           path: 'demo-service/src/ApiClient.java',
           content: `package demo.service;\n\npublic class ApiClient {\n  /**\n   * Fetches data from the service.\n   */\n  public String fetch(String endpoint) {\n    return \"ok\";\n  }\n}\n`,
+          included: true,
         },
         {
           name: 'RetryPolicy.java',
           path: 'demo-service/src/RetryPolicy.java',
           content: `package demo.service;\n\npublic final class RetryPolicy {\n  private final int maxAttempts;\n\n  public RetryPolicy(int maxAttempts) {\n    this.maxAttempts = maxAttempts;\n  }\n\n  public boolean shouldRetry(int attempt) {\n    return attempt < maxAttempts;\n  }\n}\n`,
+          included: true,
         },
         {
           name: 'ServiceStatus.java',
           path: 'demo-service/src/ServiceStatus.java',
           content: `package demo.service;\n\npublic enum ServiceStatus {\n  STARTING,\n  RUNNING,\n  STOPPED\n}\n`,
+          included: true,
         },
       ],
     },
@@ -553,11 +596,13 @@ function getDemoProjects() {
           name: 'MainFrame.java',
           path: 'demo-ui/src/MainFrame.java',
           content: `package demo.ui;\n\npublic class MainFrame {\n  private void initComponents() {\n    // UI components would be configured here.\n    javax.swing.JButton button = new javax.swing.JButton();\n    button.setText(\"OK\");\n  }\n}\n`,
+          included: true,
         },
         {
           name: 'Theme.java',
           path: 'demo-ui/src/Theme.java',
           content: `package demo.ui;\n\npublic final class Theme {\n  public static final String PRIMARY = \"#0f766e\";\n\n  private Theme() {}\n}\n`,
+          included: true,
         },
       ],
     },
@@ -634,6 +679,9 @@ function handleDemoMode() {
 }
 
 function handleFileListClick(event) {
+  if (event.target.closest('input[type="checkbox"]')) {
+    return;
+  }
   const row = event.target.closest('tr[data-file-id]');
   if (!row) return;
   state.selectedFileId = row.dataset.fileId;
@@ -650,9 +698,31 @@ async function handleDownload() {
   closeEventSource();
 
   try {
+    const includedFiles = [];
+    state.projects.forEach((project) => {
+      project.files.forEach((file) => {
+        if (file.included !== false) {
+          includedFiles.push(file.path);
+        }
+      });
+    });
+
+    if (includedFiles.length === 0) {
+      setStatus('Select at least one file to generate PDFs.', true);
+      setLoading(false);
+      hideProgress();
+      return;
+    }
+
     const formData = new FormData();
     formData.append('zip', state.zipFile, state.zipFile.name);
-    formData.append('settings', JSON.stringify(state.settings));
+    formData.append(
+      'settings',
+      JSON.stringify({
+        ...state.settings,
+        includedFiles,
+      }),
+    );
 
     const response = await fetch('/api/render/start', {
       method: 'POST',

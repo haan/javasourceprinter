@@ -124,6 +124,21 @@ function insertPaddingPages(targetDoc, pageCount, pageSize, multiple) {
   }
 }
 
+function filterProjectsByIncluded(projects, includedFiles) {
+  if (!Array.isArray(includedFiles)) return projects;
+  const allowed = new Set(includedFiles);
+  return projects
+    .map((project) => ({
+      ...project,
+      files: project.files.filter((file) => allowed.has(file.path)),
+    }))
+    .filter((project) => project.files.length > 0);
+}
+
+function countProjectFiles(projects) {
+  return projects.reduce((sum, project) => sum + project.files.length, 0);
+}
+
 function createJob() {
   const job = {
     id: randomUUID(),
@@ -241,8 +256,13 @@ async function runRenderJob(job, uploadInfo, settings) {
   job.status = 'running';
 
   try {
-    const projects = await readJavaProjects(zipPath, config, settings.projectLevel);
-    job.totalFiles = projects.reduce((sum, project) => sum + project.files.length, 0);
+    let projects = await readJavaProjects(zipPath, config, settings.projectLevel);
+    projects = filterProjectsByIncluded(projects, settings.includedFiles);
+    const totalFiles = countProjectFiles(projects);
+    if (Array.isArray(settings.includedFiles) && totalFiles === 0) {
+      throw new UserError('No files selected.', 422);
+    }
+    job.totalFiles = totalFiles;
     job.completedFiles = 0;
     sendJobEvent(job, 'progress', getProgressPayload(job));
 
@@ -352,7 +372,11 @@ app.post('/api/render', async (request, reply) => {
   const { tempDir, zipPath, originalName } = uploadInfo;
 
   try {
-    const projects = await readJavaProjects(zipPath, config, settings.projectLevel);
+    let projects = await readJavaProjects(zipPath, config, settings.projectLevel);
+    projects = filterProjectsByIncluded(projects, settings.includedFiles);
+    if (Array.isArray(settings.includedFiles) && countProjectFiles(projects) === 0) {
+      throw new UserError('No files selected.', 422);
+    }
     const renderer = await createPdfRenderer();
 
     try {

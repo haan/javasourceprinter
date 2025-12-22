@@ -39,6 +39,12 @@ function toBoolean(value, fallback) {
   return fallback;
 }
 
+function toStringArray(value) {
+  if (!Array.isArray(value)) return null;
+  const items = value.filter((item) => typeof item === 'string');
+  return items.length > 0 ? items : [];
+}
+
 function toBreakMultiple(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   return [1, 2, 4, 8].includes(parsed) ? parsed : fallback;
@@ -60,6 +66,7 @@ export function parseSettings(payload) {
   const theme = getThemeById(parsed.theme).id;
   const fontFamily = getFontById(parsed.fontFamily).id;
   const pageBreakMultiple = toBreakMultiple(parsed.pageBreakMultiple, DEFAULT_SETTINGS.pageBreakMultiple);
+  const includedFiles = toStringArray(parsed.includedFiles);
   const outputMode =
     parsed.outputMode === 'single' || parsed.outputMode === 'per-project'
       ? parsed.outputMode
@@ -83,6 +90,7 @@ export function parseSettings(payload) {
     theme,
     fontFamily,
     pageBreakMultiple,
+    includedFiles,
     outputMode,
     highlighter,
     showProjectHeader,
