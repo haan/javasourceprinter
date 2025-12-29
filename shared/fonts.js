@@ -1,4 +1,4 @@
-export const DEFAULT_FONT_ID = 'jetbrains-mono';
+export const DEFAULT_FONT_ID = 'source-code-pro';
 
 export const FONTS = [
   {
