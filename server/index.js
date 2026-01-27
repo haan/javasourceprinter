@@ -10,7 +10,7 @@ import { config } from './config.js';
 import { parseSettings } from './settings.js';
 import { saveUploadToTemp, readJavaProjects } from './zip.js';
 import { baseNameWithoutExtension, sanitizeFilename, UserError } from './utils.js';
-import { applyFilters } from '../shared/filters.js';
+import { applyFilters, applyFiltersWithLineNumbers } from '../shared/filters.js';
 import {
   buildFileHtml,
   buildFooterTemplate,
@@ -40,12 +40,24 @@ app.register(multipart, {
 app.get('/api/health', async () => ({ status: 'ok' }));
 
 async function renderFilePdf({ file, projectName, settings, renderer, theme, highlighter, fontCss }) {
-  const filteredFile = {
-    ...file,
-    content: applyFilters(file.content, settings),
-  };
+  let content = file.content;
+  let lineNumbers = null;
+  let maxLineNumber = null;
+
+  if (settings.showLineNumbers) {
+    const result = applyFiltersWithLineNumbers(file.content, settings);
+    content = result.lines.map((line) => line.text).join('\n');
+    lineNumbers = result.lines.map((line) => line.number);
+    maxLineNumber = result.maxLineNumber;
+  } else {
+    content = applyFilters(file.content, settings);
+  }
+
   const html = buildFileHtml({
-    file: filteredFile,
+    content,
+    lineNumbers,
+    maxLineNumber,
+    showLineNumbers: settings.showLineNumbers,
     theme,
     fontSize: settings.fontSize,
     lineHeight: settings.lineHeight,

@@ -92,4 +92,42 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
   overflow-wrap: anywhere;
+  padding: 14mm;
+}
+
+#preview-wrapper {
+  width: 210mm;
+  max-width: 100%;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+#code-block.line-numbers {
+  --line-number-width: 2ch;
+}
+
+#code-block.line-numbers .code-line {
+  display: flex;
+  align-items: flex-start;
+  line-height: inherit;
+}
+
+#code-block.line-numbers .line-number {
+  width: var(--line-number-width);
+  text-align: right;
+  padding-right: 0.75rem;
+  color: rgba(0, 0, 0, 0.3);
+  flex: 0 0 auto;
+  user-select: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: inherit;
+}
+
+#code-block.line-numbers .line-content {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: inherit;
 }

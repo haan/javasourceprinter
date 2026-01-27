@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS = {
   showFileHeader: true,
   showFilePath: false,
   showPageNumbers: true,
+  showLineNumbers: false,
   removeJavadoc: false,
   removeComments: false,
   collapseBlankLines: true,
@@ -75,6 +76,7 @@ export function parseSettings(payload) {
   const showProjectHeader = toBoolean(parsed.showProjectHeader, DEFAULT_SETTINGS.showProjectHeader);
   const showFileHeader = toBoolean(parsed.showFileHeader, DEFAULT_SETTINGS.showFileHeader);
   const showPageNumbers = toBoolean(parsed.showPageNumbers, DEFAULT_SETTINGS.showPageNumbers);
+  const showLineNumbers = toBoolean(parsed.showLineNumbers, DEFAULT_SETTINGS.showLineNumbers);
   const removeJavadoc = toBoolean(parsed.removeJavadoc, DEFAULT_SETTINGS.removeJavadoc);
   const removeComments = toBoolean(parsed.removeComments, DEFAULT_SETTINGS.removeComments);
   const collapseBlankLines = toBoolean(parsed.collapseBlankLines, DEFAULT_SETTINGS.collapseBlankLines);
@@ -97,6 +99,7 @@ export function parseSettings(payload) {
     showFileHeader,
     showFilePath,
     showPageNumbers,
+    showLineNumbers,
     removeJavadoc,
     removeComments,
     collapseBlankLines,

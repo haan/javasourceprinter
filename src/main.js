@@ -5,11 +5,69 @@ import java from 'highlight.js/lib/languages/java';
 import { DEFAULT_FONT_ID, getFontById, getFontOptions } from '../shared/fonts.js';
 import { DEFAULT_THEME_ID, getThemeOptions } from '../shared/themes.js';
 import { applyHighlightTheme } from './theme-loader.js';
-import { applyFilters } from '../shared/filters.js';
+import { applyFilters, applyFiltersWithLineNumbers } from '../shared/filters.js';
 
 hljs.registerLanguage('java', java);
 
 const SETTINGS_STORAGE_KEY = 'jsp.settings';
+
+function splitHighlightedLines(highlighted) {
+  const lines = [];
+  let current = '';
+  const openTags = [];
+  let index = 0;
+
+  while (index < highlighted.length) {
+    const char = highlighted[index];
+    if (char === '<') {
+      const closeIndex = highlighted.indexOf('>', index);
+      if (closeIndex === -1) {
+        current += highlighted.slice(index);
+        break;
+      }
+      const tag = highlighted.slice(index, closeIndex + 1);
+      const isClosing = /^<\s*\//.test(tag);
+      const isSelfClosing = /\/\s*>$/.test(tag);
+      const nameMatch = tag.match(/^<\s*\/?\s*([a-zA-Z0-9-]+)/);
+      const tagName = nameMatch ? nameMatch[1] : null;
+
+      if (tagName && !isClosing && !isSelfClosing) {
+        openTags.push({ name: tagName, open: tag });
+      } else if (tagName && isClosing) {
+        const lastIndex = openTags.map((item) => item.name).lastIndexOf(tagName);
+        if (lastIndex >= 0) {
+          openTags.splice(lastIndex, 1);
+        }
+      }
+
+      current += tag;
+      index = closeIndex + 1;
+      continue;
+    }
+
+    const nextTag = highlighted.indexOf('<', index);
+    const text = nextTag === -1 ? highlighted.slice(index) : highlighted.slice(index, nextTag);
+    const parts = text.split('\n');
+    for (let partIndex = 0; partIndex < parts.length; partIndex += 1) {
+      current += parts[partIndex];
+      if (partIndex < parts.length - 1) {
+        for (let closeIndex = openTags.length - 1; closeIndex >= 0; closeIndex -= 1) {
+          current += `</${openTags[closeIndex].name}>`;
+        }
+        lines.push(current);
+        current = '';
+        for (let openIndex = 0; openIndex < openTags.length; openIndex += 1) {
+          current += openTags[openIndex].open;
+        }
+      }
+    }
+
+    index = nextTag === -1 ? highlighted.length : nextTag;
+  }
+
+  lines.push(current);
+  return lines;
+}
 
 const elements = {
   landing: document.querySelector('#landing'),
@@ -38,6 +96,7 @@ const elements = {
   headerFileToggle: document.querySelector('#header-file-toggle'),
   headerPathToggle: document.querySelector('#header-path-toggle'),
   footerPageToggle: document.querySelector('#footer-page-toggle'),
+  lineNumbersToggle: document.querySelector('#line-numbers-toggle'),
   filterJavadocToggle: document.querySelector('#filter-javadoc-toggle'),
   filterCommentsToggle: document.querySelector('#filter-comments-toggle'),
   filterBlankLinesToggle: document.querySelector('#filter-blanklines-toggle'),
@@ -75,6 +134,7 @@ const DEFAULT_SETTINGS = {
   showFileHeader: true,
   showFilePath: false,
   showPageNumbers: true,
+  showLineNumbers: false,
   removeJavadoc: false,
   removeComments: false,
   collapseBlankLines: true,
@@ -266,6 +326,7 @@ function applySettingsToControls() {
   elements.headerFileToggle.checked = state.settings.showFileHeader;
   elements.headerPathToggle.checked = state.settings.showFilePath;
   elements.footerPageToggle.checked = state.settings.showPageNumbers;
+  elements.lineNumbersToggle.checked = state.settings.showLineNumbers;
   elements.filterJavadocToggle.checked = state.settings.removeJavadoc;
   elements.filterCommentsToggle.checked = state.settings.removeComments;
   elements.filterBlankLinesToggle.checked = state.settings.collapseBlankLines;
@@ -393,10 +454,29 @@ function renderPreview() {
   elements.previewTitle.textContent = selection.file.name;
   elements.previewMeta.textContent = selection.project.name;
 
-  const filteredContent = applyFilters(selection.file.content, state.settings);
-  const highlighted = hljs.highlight(filteredContent, { language: 'java' }).value;
-  elements.codeBlock.className = 'hljs language-java';
-  elements.codeBlock.innerHTML = highlighted;
+  if (state.settings.showLineNumbers) {
+    const { lines, maxLineNumber } = applyFiltersWithLineNumbers(selection.file.content, state.settings);
+    const filteredContent = lines.map((line) => line.text).join('\n');
+    const highlighted = hljs.highlight(filteredContent, { language: 'java' }).value;
+    const highlightedLines = splitHighlightedLines(highlighted);
+    const numberWidth = String(maxLineNumber).length;
+    const numberedHtml = highlightedLines
+      .map((line, index) => {
+        const lineNumber = lines[index]?.number ?? '';
+        const content = line.length ? line : '&nbsp;';
+        return `<span class="code-line"><span class="line-number">${lineNumber}</span><span class="line-content">${content}</span></span>`;
+      })
+      .join('');
+    elements.codeBlock.className = 'hljs language-java line-numbers';
+    elements.codeBlock.style.setProperty('--line-number-width', `${numberWidth}ch`);
+    elements.codeBlock.innerHTML = numberedHtml;
+  } else {
+    const filteredContent = applyFilters(selection.file.content, state.settings);
+    const highlighted = hljs.highlight(filteredContent, { language: 'java' }).value;
+    elements.codeBlock.className = 'hljs language-java';
+    elements.codeBlock.style.removeProperty('--line-number-width');
+    elements.codeBlock.innerHTML = highlighted;
+  }
   updatePreviewFontSize();
   updatePreviewLineHeight();
   updatePreviewFontFamily();
@@ -416,6 +496,7 @@ function setSettings({
   showFileHeader,
   showFilePath,
   showPageNumbers,
+  showLineNumbers,
   removeJavadoc,
   removeComments,
   collapseBlankLines,
@@ -474,6 +555,10 @@ function setSettings({
   syncHeaderPathToggle();
   if (typeof showPageNumbers === 'boolean') {
     state.settings.showPageNumbers = showPageNumbers;
+  }
+  if (typeof showLineNumbers === 'boolean') {
+    state.settings.showLineNumbers = showLineNumbers;
+    needsPreviewRefresh = true;
   }
   if (typeof removeJavadoc === 'boolean') {
     state.settings.removeJavadoc = removeJavadoc;
@@ -982,6 +1067,10 @@ elements.headerPathToggle.addEventListener('change', (event) => {
 
 elements.footerPageToggle.addEventListener('change', (event) => {
   setSettings({ showPageNumbers: event.target.checked });
+});
+
+elements.lineNumbersToggle.addEventListener('change', (event) => {
+  setSettings({ showLineNumbers: event.target.checked });
 });
 
 elements.filterJavadocToggle.addEventListener('change', (event) => {

@@ -218,6 +218,64 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function splitHighlightedLines(highlighted) {
+  const lines = [];
+  let current = '';
+  const openTags = [];
+  let index = 0;
+
+  while (index < highlighted.length) {
+    const char = highlighted[index];
+    if (char === '<') {
+      const closeIndex = highlighted.indexOf('>', index);
+      if (closeIndex === -1) {
+        current += highlighted.slice(index);
+        break;
+      }
+      const tag = highlighted.slice(index, closeIndex + 1);
+      const isClosing = /^<\s*\//.test(tag);
+      const isSelfClosing = /\/\s*>$/.test(tag);
+      const nameMatch = tag.match(/^<\s*\/?\s*([a-zA-Z0-9-]+)/);
+      const tagName = nameMatch ? nameMatch[1] : null;
+
+      if (tagName && !isClosing && !isSelfClosing) {
+        openTags.push({ name: tagName, open: tag });
+      } else if (tagName && isClosing) {
+        const lastIndex = openTags.map((item) => item.name).lastIndexOf(tagName);
+        if (lastIndex >= 0) {
+          openTags.splice(lastIndex, 1);
+        }
+      }
+
+      current += tag;
+      index = closeIndex + 1;
+      continue;
+    }
+
+    const nextTag = highlighted.indexOf('<', index);
+    const text = nextTag === -1 ? highlighted.slice(index) : highlighted.slice(index, nextTag);
+    const parts = text.split('\n');
+    for (let partIndex = 0; partIndex < parts.length; partIndex += 1) {
+      current += parts[partIndex];
+      if (partIndex < parts.length - 1) {
+        for (let closeIndex = openTags.length - 1; closeIndex >= 0; closeIndex -= 1) {
+          current += `</${openTags[closeIndex].name}>`;
+        }
+        lines.push(current);
+        current = '';
+        for (let openIndex = 0; openIndex < openTags.length; openIndex += 1) {
+          current += openTags[openIndex].open;
+        }
+      }
+    }
+
+    index = nextTag === -1 ? highlighted.length : nextTag;
+  }
+
+  lines.push(current);
+  return lines;
+}
+
 export function buildHeaderTemplate({ settings, projectName, fileName, filePath, fontCss }) {
   if (!settings.showProjectHeader && !settings.showFileHeader) return null;
   const headerFontSize = Math.max(8, settings.fontSize - 1);
@@ -256,9 +314,32 @@ export function buildFooterTemplate({ settings, fontCss }) {
   `;
 }
 
-export function buildFileHtml({ file, theme, fontSize, lineHeight, highlighter, fontFamily, fontCss }) {
-  const highlighted = highlighter.highlight(file.content, 'java');
+export function buildFileHtml({
+  content,
+  lineNumbers,
+  maxLineNumber,
+  showLineNumbers,
+  theme,
+  fontSize,
+  lineHeight,
+  highlighter,
+  fontFamily,
+  fontCss,
+}) {
+  const highlighted = highlighter.highlight(content, 'java');
   const fontStack = resolveFontStack({ fontFamily });
+  const numberWidth = maxLineNumber ? String(maxLineNumber).length : 1;
+  const lines = showLineNumbers ? splitHighlightedLines(highlighted) : null;
+  const numberedHtml = showLineNumbers
+    ? lines
+        .map((line, index) => {
+          const lineNumber = lineNumbers?.[index] ?? '';
+          const lineContent = line.length ? line : '&nbsp;';
+          return `<span class="code-line"><span class="line-number">${lineNumber}</span><span class="line-content">${lineContent}</span></span>`;
+        })
+        .join('')
+    : highlighted;
+
   return `
     <!doctype html>
     <html>
@@ -295,10 +376,37 @@ export function buildFileHtml({ file, theme, fontSize, lineHeight, highlighter, 
             overflow-wrap: anywhere;
             background: transparent;
           }
+          .line-numbers {
+            --line-number-width: ${numberWidth}ch;
+          }
+          .line-numbers .code-line {
+            display: flex;
+            align-items: flex-start;
+            line-height: inherit;
+          }
+          .line-numbers .line-number {
+            width: var(--line-number-width);
+            text-align: right;
+            padding-right: 0.75rem;
+            color: rgba(0, 0, 0, 0.3);
+            flex: 0 0 auto;
+            user-select: none;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+            line-height: inherit;
+          }
+          .line-numbers .line-content {
+            flex: 1;
+            min-width: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            line-height: inherit;
+          }
         </style>
       </head>
       <body>
-        <pre><code class="hljs language-java">${highlighted}</code></pre>
+        <pre><code class="hljs language-java${showLineNumbers ? ' line-numbers' : ''}">${numberedHtml}</code></pre>
       </body>
     </html>
   `;

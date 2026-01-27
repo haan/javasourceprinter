@@ -215,12 +215,12 @@
 
     <div id="app" class="hidden min-h-screen">
       <header class="px-6 pt-6">
-        <div class="mx-auto flex max-w-6xl items-center">
+        <div class="mx-auto flex max-w-7xl items-center">
           <img src="/logo.png" alt="Java Source Printer" class="h-20 w-auto ml-1" />
         </div>
       </header>
 
-      <main class="mx-auto w-full max-w-6xl space-y-6 px-6 pb-10 pt-6">
+      <main class="mx-auto w-full max-w-7xl space-y-6 px-6 pb-10 pt-6">
         <section class="space-y-6">
           <div class="rounded-box border border-base-300 bg-base-100 p-5 shadow">
             <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -353,6 +353,9 @@
                     <span class="label-text">Page numbers in footer</span>
                     <input id="footer-page-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
 
+                    <span class="label-text">Show line numbers</span>
+                    <input id="line-numbers-toggle" type="checkbox" class="toggle toggle-primary justify-self-end" />
+
                     <span class="label-text">Pad to page multiple of</span>
                     <select id="page-break-select" class="select select-bordered select-sm w-full">
                       <option value="1">1</option>
@@ -393,8 +396,8 @@
               <span id="preview-meta" class="text-xs text-base-content/60"></span>
             </div>
 
-            <div id="preview-wrapper" class="mt-6 rounded-box border border-base-300 bg-base-200">
-              <pre class="max-h-[68vh] overflow-auto p-5">
+            <div id="preview-wrapper" class="mt-6 mx-auto rounded-box border border-base-300 bg-white">
+              <pre class="max-h-[68vh] overflow-auto">
                 <code id="code-block" class="language-java"></code>
               </pre>
             </div>
