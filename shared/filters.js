@@ -20,31 +20,6 @@ function collapseBlankLines(text) {
   return result.join(newline);
 }
 
-function stripComments(text, removeJavadoc) {
-  const placeholders = [];
-  let working = text;
-
-  if (!removeJavadoc) {
-    working = working.replace(/\/\*\*[\s\S]*?\*\//g, (match) => {
-      const key = `__JAVADOC_PLACEHOLDER_${placeholders.length}__`;
-      placeholders.push(match);
-      return key;
-    });
-  }
-
-  working = working.replace(/\/\*[\s\S]*?\*\//g, '');
-  working = working.replace(/(^|[^:])\/\/.*$/gm, '$1');
-
-  if (!removeJavadoc) {
-    placeholders.forEach((comment, index) => {
-      const key = `__JAVADOC_PLACEHOLDER_${index}__`;
-      working = working.replace(key, comment);
-    });
-  }
-
-  return working;
-}
-
 function stripCommentsPreserveLines(text, mode) {
   let output = '';
   let index = 0;

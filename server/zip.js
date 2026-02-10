@@ -21,45 +21,81 @@ export async function readJavaProjects(zipPath, config, projectLevel = 1) {
   let fileCount = 0;
   const level = Math.min(3, Math.max(1, Number.parseInt(projectLevel, 10) || 1));
 
-  for (const entry of directory.files) {
-    if (entry.type !== 'File') continue;
-    const normalizedPath = entry.path.replace(/\\/g, '/');
-    if (!normalizedPath.toLowerCase().endsWith('.java')) continue;
-    if (normalizedPath.startsWith('/') || normalizedPath.includes('..')) continue;
-
-    const segments = normalizedPath.split('/').filter(Boolean);
-    if (segments.length < level + 1) continue;
-
+  function addJavaFile(projectName, filePath, content) {
     fileCount += 1;
     if (fileCount > config.maxFileCount) {
       throw new UserError('Too many Java files in the zip.', 413);
     }
-
-    const entrySize = Number(entry.uncompressedSize);
-    const hasEntrySize = Number.isFinite(entrySize) && entrySize >= 0;
-    if (hasEntrySize && entrySize > config.maxFileBytes) {
-      throw new UserError('A Java file exceeds the allowed size.', 413);
-    }
-    const buffer = await readEntryBuffer(entry, config, (chunkLength) => {
-      totalBytes += chunkLength;
-      if (totalBytes > config.maxTotalBytes) {
-        throw new UserError('Total Java source size exceeds the allowed limit.', 413);
-      }
-    });
-
-    const projectName = segments[level - 1];
-    const fileName = segments[segments.length - 1];
-    const content = buffer.toString('utf8');
 
     if (!projectMap.has(projectName)) {
       projectMap.set(projectName, []);
     }
 
     projectMap.get(projectName).push({
-      name: fileName,
-      path: normalizedPath,
+      name: path.basename(filePath),
+      path: filePath,
       content,
     });
+  }
+
+  function addToTotalBytes(byteCount) {
+    totalBytes += byteCount;
+    if (totalBytes > config.maxTotalBytes) {
+      throw new UserError('Total Java source size exceeds the allowed limit.', 413);
+    }
+  }
+
+  async function processJavaEntry(entry, normalizedPath, projectName) {
+    const entrySize = Number(entry.uncompressedSize);
+    const hasEntrySize = Number.isFinite(entrySize) && entrySize >= 0;
+    if (hasEntrySize && entrySize > config.maxFileBytes) {
+      throw new UserError('A Java file exceeds the allowed size.', 413);
+    }
+
+    const buffer = await readEntryBuffer(entry, config, addToTotalBytes);
+    addJavaFile(projectName, normalizedPath, buffer.toString('utf8'));
+  }
+
+  async function processUmzEntry(entry, normalizedPath, projectName) {
+    const umzBuffer = await readEntryBuffer(entry, config, null);
+    const nestedDirectory = await unzipper.Open.buffer(umzBuffer);
+
+    for (const nestedEntry of nestedDirectory.files) {
+      if (nestedEntry.type !== 'File') continue;
+      const nestedPath = nestedEntry.path.replace(/\\/g, '/');
+      if (!nestedPath.toLowerCase().endsWith('.java')) continue;
+      if (nestedPath.startsWith('/') || nestedPath.includes('..')) continue;
+
+      const combinedPath = `${normalizedPath}/${nestedPath}`;
+      const entrySize = Number(nestedEntry.uncompressedSize);
+      const hasEntrySize = Number.isFinite(entrySize) && entrySize >= 0;
+      if (hasEntrySize && entrySize > config.maxFileBytes) {
+        throw new UserError('A Java file exceeds the allowed size.', 413);
+      }
+
+      const javaBuffer = await readEntryBuffer(nestedEntry, config, addToTotalBytes);
+      addJavaFile(projectName, combinedPath, javaBuffer.toString('utf8'));
+    }
+  }
+
+  for (const entry of directory.files) {
+    if (entry.type !== 'File') continue;
+    const normalizedPath = entry.path.replace(/\\/g, '/');
+    if (normalizedPath.startsWith('/') || normalizedPath.includes('..')) continue;
+
+    const segments = normalizedPath.split('/').filter(Boolean);
+    if (segments.length < level + 1) continue;
+    const projectName = segments[level - 1];
+
+    const lowerPath = normalizedPath.toLowerCase();
+    if (lowerPath.endsWith('.java')) {
+      await processJavaEntry(entry, normalizedPath, projectName);
+      continue;
+    }
+
+    if (lowerPath.endsWith('.umz')) {
+      await processUmzEntry(entry, normalizedPath, projectName);
+    }
   }
 
   if (fileCount === 0) {

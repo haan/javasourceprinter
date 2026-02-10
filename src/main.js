@@ -196,7 +196,7 @@ function loadStoredSettings() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -204,7 +204,7 @@ function loadStoredSettings() {
 function saveStoredSettings() {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(state.settings));
-  } catch (error) {
+  } catch (_error) {
     // Ignore localStorage failures.
   }
 }
@@ -295,7 +295,7 @@ async function reloadZipProjects() {
     } else {
       setStatus('Preview ready.');
     }
-  } catch (error) {
+  } catch (_error) {
     setStatus('Failed to read the zip. Please check the file format.', true);
   } finally {
     setLoading(false);
@@ -593,29 +593,60 @@ async function parseZip(file, projectLevel = state.settings.projectLevel) {
   const projectMap = new Map();
   const level = Math.min(3, Math.max(1, Number(projectLevel) || 1));
 
-  const entries = Object.values(zip.files);
-  for (const entry of entries) {
-    if (entry.dir) continue;
-    if (!entry.name.toLowerCase().endsWith('.java')) continue;
-
-    const normalizedPath = entry.name.replace(/\\/g, '/');
-    const segments = normalizedPath.split('/').filter(Boolean);
-    if (segments.length < level + 1) continue;
-
-    const projectName = segments[level - 1];
-    const fileName = segments[segments.length - 1];
-    const content = await entry.async('text');
-
+  function addJavaFile(projectName, filePath, content) {
     if (!projectMap.has(projectName)) {
       projectMap.set(projectName, []);
     }
 
+    const segments = filePath.split('/').filter(Boolean);
+    const fileName = segments[segments.length - 1] || filePath;
     projectMap.get(projectName).push({
       name: fileName,
-      path: normalizedPath,
+      path: filePath,
       content,
       included: true,
     });
+  }
+
+  const entries = Object.values(zip.files);
+  for (const entry of entries) {
+    if (entry.dir) continue;
+    const normalizedPath = entry.name.replace(/\\/g, '/');
+    if (normalizedPath.startsWith('/') || normalizedPath.includes('..')) continue;
+
+    const segments = normalizedPath.split('/').filter(Boolean);
+    if (segments.length < level + 1) continue;
+    const projectName = segments[level - 1];
+    const lowerPath = normalizedPath.toLowerCase();
+
+    if (lowerPath.endsWith('.java')) {
+      const content = await entry.async('text');
+      addJavaFile(projectName, normalizedPath, content);
+      continue;
+    }
+
+    if (!lowerPath.endsWith('.umz')) {
+      continue;
+    }
+
+    let nestedZip;
+    try {
+      nestedZip = await JSZip.loadAsync(await entry.async('arraybuffer'));
+    } catch (_error) {
+      continue;
+    }
+
+    const nestedEntries = Object.values(nestedZip.files);
+    for (const nestedEntry of nestedEntries) {
+      if (nestedEntry.dir) continue;
+      const nestedPath = nestedEntry.name.replace(/\\/g, '/');
+      if (!nestedPath.toLowerCase().endsWith('.java')) continue;
+      if (nestedPath.startsWith('/') || nestedPath.includes('..')) continue;
+
+      const content = await nestedEntry.async('text');
+      const combinedPath = `${normalizedPath}/${nestedPath}`;
+      addJavaFile(projectName, combinedPath, content);
+    }
   }
 
   const projects = Array.from(projectMap.entries())
@@ -778,7 +809,7 @@ async function handleLandingUpload() {
     } else {
       setStatus('Preview ready.');
     }
-  } catch (error) {
+  } catch (_error) {
     setLandingStatus('Failed to read the zip. Please check the file format.', true);
   } finally {
     elements.landingUpload.disabled = !state.pendingFile;
@@ -799,7 +830,7 @@ async function handleAppZipChange(event) {
     } else {
       setStatus('Preview ready.');
     }
-  } catch (error) {
+  } catch (_error) {
     setStatus('Failed to read the zip. Please check the file format.', true);
   } finally {
     event.target.value = '';
@@ -885,7 +916,7 @@ async function handleDownload() {
       try {
         const payload = await response.json();
         if (payload?.error) errorMessage = payload.error;
-      } catch (err) {
+      } catch (_err) {
         // Ignore parse errors.
       }
       throw new Error(errorMessage);
@@ -903,7 +934,7 @@ async function handleDownload() {
       try {
         const data = JSON.parse(event.data);
         updateProgress(data.completed, data.total);
-      } catch (error) {
+      } catch (_error) {
         // Ignore parse errors.
       }
     });
@@ -926,7 +957,7 @@ async function handleDownload() {
       try {
         const data = JSON.parse(event.data);
         if (data?.error) message = data.error;
-      } catch (error) {
+      } catch (_error) {
         // Ignore parse errors.
       }
       setStatus(message, true);
@@ -958,7 +989,7 @@ async function downloadJob(jobId) {
     try {
       const payload = await response.json();
       if (payload?.error) errorMessage = payload.error;
-    } catch (err) {
+    } catch (_err) {
       // Ignore parse errors.
     }
     throw new Error(errorMessage);

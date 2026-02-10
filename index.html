@@ -11,7 +11,7 @@
       <div class="flex w-full max-w-xl flex-col items-center gap-6 text-center">
         <div class="space-y-3">
           <img src="/logo.png" alt="Java Source Printer" class="mx-auto w-auto" />
-          <p class="text-sm text-base-content/70">Select a zip file with your Java projects to preview <span class="font-semibold">locally</span>.</p>
+          <p class="text-sm text-base-content/70">Select a zip file with your Java projects to preview <span class="font-semibold">locally</span>. Embedded <span class="font-semibold">.umz</span> archives are supported.</p>
         </div>
         <div class="flex w-full flex-col items-center gap-2">
           <input id="zip-input" type="file" accept=".zip" class="file-input file-input-bordered w-full max-w-md" />
@@ -173,6 +173,9 @@
             <h3 class="text-base font-semibold text-base-content">Notes</h3>
             <ul class="list-disc space-y-2 pl-5">
               <li>The folder name at the selected project level is used as the project name.</li>
+              <li>Embedded <span class="font-medium">.umz</span> files are treated as zip containers and scanned for <span class="font-medium">.java</span> files.</li>
+              <li>Java files found in a .umz appear with a nested path (for example <span class="font-mono">ProjectA/A.umz/src/Order.java</span>).</li>
+              <li>Nested .umz files inside another .umz are ignored.</li>
               <li>Use the checkbox next to a file to exclude it from the generated PDFs.</li>
               <li>Non-Java files are ignored.</li>
             </ul>

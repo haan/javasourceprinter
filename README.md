@@ -5,6 +5,7 @@ Java Source Printer turns a zip full of Java projects into syntax-highlighted PD
 ## Features
 - Upload a zip containing multiple top-level project folders.
 - Configure the project folder level when the zip nests projects deeper.
+- Parse embedded `.umz` archives (created by Unimozer Next) inside the uploaded zip and include their `.java` files (one nesting level; nested `.umz` inside `.umz` are ignored).
 - Overview grouped by project, sorted by project then file name.
 - Preview with adjustable font size, line height, color scheme, and font family.
 - Filters: remove JavaDoc, remove comments, collapse blank lines, hide initComponents(), hide main(), tabs to spaces.
@@ -27,6 +28,13 @@ npm run dev
 Frontend: `http://localhost:5173`  
 Backend: `http://127.0.0.1:3001`
 
+## Lint
+
+```
+npm run lint
+npm run lint:fix
+```
+
 ## Build
 
 ```
@@ -36,3 +44,7 @@ npm run build
 ## Deployment
 
 See `deploy/README-DEPLOY.md`.
+
+## Related Project
+
+Unimozer Next: https://github.com/haan/UnimozerNext

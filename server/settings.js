@@ -56,7 +56,7 @@ export function parseSettings(payload) {
   try {
     const raw = toStringPayload(payload);
     parsed = raw ? JSON.parse(raw) : {};
-  } catch (error) {
+  } catch (_error) {
     parsed = {};
   }
 

@@ -11,6 +11,8 @@
     "dev:client": "vite",
     "dev:server": "node server/index.js",
     "build": "vite build",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "preview": "vite preview",
     "start": "node server/index.js",
     "playwright:install": "playwright install chromium",
@@ -37,6 +39,7 @@
     "autoprefixer": "^10.4.23",
     "concurrently": "^9.2.1",
     "daisyui": "^5.5.14",
+    "eslint": "^9.18.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "vite": "^7.3.1"

@@ -146,7 +146,7 @@ async function buildEmbeddedFontCss(family) {
       rules.push(
         `@font-face { font-family: "${font.family}"; font-style: normal; font-weight: ${font.weight}; src: url(data:font/woff2;base64,${base64}) format("woff2"); font-display: swap; }`,
       );
-    } catch (error) {
+    } catch (_error) {
     }
   }
   return rules.join('\n');
