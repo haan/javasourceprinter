@@ -5,6 +5,9 @@ import { pipeline } from 'node:stream/promises';
 import unzipper from 'unzipper';
 import { sanitizeFilename, UserError } from './utils.js';
 
+const JAVA_FILE_TOO_LARGE_MESSAGE = 'A Java file exceeds the allowed size.';
+const UMZ_FILE_TOO_LARGE_MESSAGE = 'An embedded .umz file exceeds the allowed size.';
+
 export async function saveUploadToTemp(filePart, config) {
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), config.tempPrefix));
   const safeName = sanitizeFilename(filePart.filename || 'upload.zip', 'upload.zip');
@@ -49,18 +52,31 @@ export async function readJavaProjects(zipPath, config, projectLevel = 1) {
     const entrySize = Number(entry.uncompressedSize);
     const hasEntrySize = Number.isFinite(entrySize) && entrySize >= 0;
     if (hasEntrySize && entrySize > config.maxFileBytes) {
-      throw new UserError('A Java file exceeds the allowed size.', 413);
+      throw new UserError(JAVA_FILE_TOO_LARGE_MESSAGE, 413);
     }
 
-    const buffer = await readEntryBuffer(entry, config, addToTotalBytes);
+    const buffer = await readEntryBuffer(entry, {
+      maxBytes: config.maxFileBytes,
+      tooLargeMessage: JAVA_FILE_TOO_LARGE_MESSAGE,
+      onChunk: addToTotalBytes,
+    });
     addJavaFile(projectName, normalizedPath, buffer.toString('utf8'));
   }
 
-async function processUmzEntry(entry, normalizedPath, projectName) {
-  const umzBuffer = await readEntryBuffer(entry, config, null);
-  let nestedDirectory;
-  try {
-    nestedDirectory = await unzipper.Open.buffer(umzBuffer);
+  async function processUmzEntry(entry, normalizedPath, projectName) {
+    const entrySize = Number(entry.uncompressedSize);
+    const hasEntrySize = Number.isFinite(entrySize) && entrySize >= 0;
+    if (hasEntrySize && entrySize > config.maxUmzBytes) {
+      throw new UserError(UMZ_FILE_TOO_LARGE_MESSAGE, 413);
+    }
+
+    const umzBuffer = await readEntryBuffer(entry, {
+      maxBytes: config.maxUmzBytes,
+      tooLargeMessage: UMZ_FILE_TOO_LARGE_MESSAGE,
+    });
+    let nestedDirectory;
+    try {
+      nestedDirectory = await unzipper.Open.buffer(umzBuffer);
   } catch (_error) {
     return;
   }
@@ -75,10 +91,14 @@ async function processUmzEntry(entry, normalizedPath, projectName) {
       const entrySize = Number(nestedEntry.uncompressedSize);
       const hasEntrySize = Number.isFinite(entrySize) && entrySize >= 0;
       if (hasEntrySize && entrySize > config.maxFileBytes) {
-        throw new UserError('A Java file exceeds the allowed size.', 413);
+        throw new UserError(JAVA_FILE_TOO_LARGE_MESSAGE, 413);
       }
 
-      const javaBuffer = await readEntryBuffer(nestedEntry, config, addToTotalBytes);
+      const javaBuffer = await readEntryBuffer(nestedEntry, {
+        maxBytes: config.maxFileBytes,
+        tooLargeMessage: JAVA_FILE_TOO_LARGE_MESSAGE,
+        onChunk: addToTotalBytes,
+      });
       addJavaFile(projectName, combinedPath, javaBuffer.toString('utf8'));
     }
   }
@@ -120,7 +140,7 @@ async function processUmzEntry(entry, normalizedPath, projectName) {
   return projects;
 }
 
-async function readEntryBuffer(entry, config, onChunk) {
+async function readEntryBuffer(entry, { maxBytes, tooLargeMessage, onChunk }) {
   const chunks = [];
   let size = 0;
   const stream = entry.stream();
@@ -128,8 +148,8 @@ async function readEntryBuffer(entry, config, onChunk) {
   try {
     for await (const chunk of stream) {
       size += chunk.length;
-      if (size > config.maxFileBytes) {
-        throw new UserError('A Java file exceeds the allowed size.', 413);
+      if (size > maxBytes) {
+        throw new UserError(tooLargeMessage, 413);
       }
       if (onChunk) {
         onChunk(chunk.length);

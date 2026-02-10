@@ -52,6 +52,8 @@ Copy `deploy/env/javasourceprinter.env` to `/var/www/java/server/.env` and adjus
 
 `MAX_ACTIVE_JOBS` limits how many render requests run at the same time (shared across `/api/render/start` jobs and direct `/api/render` requests). `MAX_QUEUED_JOBS` limits how many background jobs may wait in the queue when all active slots are busy. When both limits are reached, the API returns HTTP `429`.
 
+`MAX_UMZ_BYTES` limits the maximum uncompressed size of a single embedded `.umz` file inside the uploaded zip. `MAX_FILE_BYTES` still applies to each individual `.java` file.
+
 `CHROMIUM_NO_SANDBOX=0` keeps the Chromium sandbox enabled (recommended). Set it to `1` only if your server cannot use the sandbox and Playwright fails with a “No usable sandbox” error.
 
 ## 5) systemd service

@@ -20,6 +20,7 @@ export const config = {
   maxQueuedJobs: toInt(process.env.MAX_QUEUED_JOBS, 8),
   maxZipBytes: toInt(process.env.MAX_ZIP_BYTES, 50 * 1024 * 1024),
   maxTotalBytes: toInt(process.env.MAX_TOTAL_BYTES, 50 * 1024 * 1024),
+  maxUmzBytes: toInt(process.env.MAX_UMZ_BYTES, 10 * 1024 * 1024),
   maxFileBytes: toInt(process.env.MAX_FILE_BYTES, 2 * 1024 * 1024),
   maxFileCount: toInt(process.env.MAX_FILE_COUNT, 2000),
   tempPrefix: process.env.TMP_PREFIX || 'java-printer-',
