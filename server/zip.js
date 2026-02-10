@@ -56,11 +56,16 @@ export async function readJavaProjects(zipPath, config, projectLevel = 1) {
     addJavaFile(projectName, normalizedPath, buffer.toString('utf8'));
   }
 
-  async function processUmzEntry(entry, normalizedPath, projectName) {
-    const umzBuffer = await readEntryBuffer(entry, config, null);
-    const nestedDirectory = await unzipper.Open.buffer(umzBuffer);
+async function processUmzEntry(entry, normalizedPath, projectName) {
+  const umzBuffer = await readEntryBuffer(entry, config, null);
+  let nestedDirectory;
+  try {
+    nestedDirectory = await unzipper.Open.buffer(umzBuffer);
+  } catch (_error) {
+    return;
+  }
 
-    for (const nestedEntry of nestedDirectory.files) {
+  for (const nestedEntry of nestedDirectory.files) {
       if (nestedEntry.type !== 'File') continue;
       const nestedPath = nestedEntry.path.replace(/\\/g, '/');
       if (!nestedPath.toLowerCase().endsWith('.java')) continue;

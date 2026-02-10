@@ -23,8 +23,11 @@ import {
 
 const app = fastify({ logger: false });
 const RENDER_CONCURRENCY = Math.max(1, config.renderConcurrency);
+const MAX_ACTIVE_JOBS = Math.max(1, config.maxActiveJobs);
+const MAX_QUEUED_JOBS = Math.max(0, config.maxQueuedJobs);
 const jobs = new Map();
 const JOB_TTL_MS = 5 * 60 * 1000;
+let directRendersInFlight = 0;
 
 if (process.env.NODE_ENV !== 'production') {
   app.register(cors, { origin: true });
@@ -151,7 +154,7 @@ function countProjectFiles(projects) {
   return projects.reduce((sum, project) => sum + project.files.length, 0);
 }
 
-function createJob() {
+function createJob(uploadInfo, settings) {
   const job = {
     id: randomUUID(),
     status: 'pending',
@@ -161,6 +164,8 @@ function createJob() {
     error: null,
     clients: new Set(),
     cleanupTimer: null,
+    uploadInfo,
+    settings,
   };
   jobs.set(job.id, job);
   return job;
@@ -194,6 +199,39 @@ function scheduleJobCleanup(job, delay = JOB_TTL_MS) {
   job.cleanupTimer = setTimeout(() => {
     jobs.delete(job.id);
   }, delay);
+}
+
+function countRunningJobs() {
+  let count = 0;
+  for (const job of jobs.values()) {
+    if (job.status === 'running') count += 1;
+  }
+  return count;
+}
+
+function countPendingJobs() {
+  let count = 0;
+  for (const job of jobs.values()) {
+    if (job.status === 'pending') count += 1;
+  }
+  return count;
+}
+
+function countActiveSlotsInUse() {
+  return countRunningJobs() + directRendersInFlight;
+}
+
+function canAcceptQueuedRender() {
+  if (countActiveSlotsInUse() < MAX_ACTIVE_JOBS) return true;
+  return countPendingJobs() < MAX_QUEUED_JOBS;
+}
+
+function startQueuedJobs() {
+  while (countActiveSlotsInUse() < MAX_ACTIVE_JOBS) {
+    const nextJob = Array.from(jobs.values()).find((job) => job.status === 'pending');
+    if (!nextJob) break;
+    void runRenderJob(nextJob);
+  }
 }
 
 async function buildZipBuffer(entries) {
@@ -263,8 +301,11 @@ async function renderMergedPdf({ fileQueue, settings, renderer, theme, highlight
   return Buffer.from(await merged.save());
 }
 
-async function runRenderJob(job, uploadInfo, settings) {
-  const { tempDir, zipPath, originalName } = uploadInfo;
+async function runRenderJob(job) {
+  if (job.status !== 'pending') return;
+
+  const { tempDir, zipPath, originalName } = job.uploadInfo;
+  const settings = job.settings;
   job.status = 'running';
 
   try {
@@ -356,102 +397,118 @@ async function runRenderJob(job, uploadInfo, settings) {
     scheduleJobCleanup(job);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
+    startQueuedJobs();
   }
 }
 
 app.post('/api/render', async (request, reply) => {
-  const parts = request.parts();
-  let uploadInfo = null;
-  let settingsPayload = null;
-
-  for await (const part of parts) {
-    if (part.type === 'file' && part.fieldname === 'zip') {
-      if (uploadInfo) {
-        throw new UserError('Only one zip file is allowed.', 400);
-      }
-      uploadInfo = await saveUploadToTemp(part, config);
-    }
-    if (part.type === 'field' && part.fieldname === 'settings') {
-      settingsPayload = part.value;
-    }
+  if (countActiveSlotsInUse() >= MAX_ACTIVE_JOBS) {
+    throw new UserError('Server is busy. Try again in a moment.', 429);
   }
 
-  if (!uploadInfo) {
-    throw new UserError('Zip file is required.', 400);
-  }
-
-  const settings = parseSettings(settingsPayload);
-  const { tempDir, zipPath, originalName } = uploadInfo;
-
+  directRendersInFlight += 1;
   try {
-    let projects = await readJavaProjects(zipPath, config, settings.projectLevel);
-    projects = filterProjectsByIncluded(projects, settings.includedFiles);
-    if (Array.isArray(settings.includedFiles) && countProjectFiles(projects) === 0) {
-      throw new UserError('No files selected.', 422);
+    const parts = request.parts();
+    let uploadInfo = null;
+    let settingsPayload = null;
+
+    for await (const part of parts) {
+      if (part.type === 'file' && part.fieldname === 'zip') {
+        if (uploadInfo) {
+          throw new UserError('Only one zip file is allowed.', 400);
+        }
+        uploadInfo = await saveUploadToTemp(part, config);
+      }
+      if (part.type === 'field' && part.fieldname === 'settings') {
+        settingsPayload = part.value;
+      }
     }
-    const renderer = await createPdfRenderer();
+
+    if (!uploadInfo) {
+      throw new UserError('Zip file is required.', 400);
+    }
+
+    const settings = parseSettings(settingsPayload);
+    const { tempDir, zipPath, originalName } = uploadInfo;
 
     try {
-      const { theme, highlighter, fontCss } = await createRenderContext(settings);
+      let projects = await readJavaProjects(zipPath, config, settings.projectLevel);
+      projects = filterProjectsByIncluded(projects, settings.includedFiles);
+      if (Array.isArray(settings.includedFiles) && countProjectFiles(projects) === 0) {
+        throw new UserError('No files selected.', 422);
+      }
+      const renderer = await createPdfRenderer();
 
-      if (settings.outputMode === 'single') {
-        const fileQueue = projects.flatMap((project) =>
-          project.files.map((file) => ({
+      try {
+        const { theme, highlighter, fontCss } = await createRenderContext(settings);
+
+        if (settings.outputMode === 'single') {
+          const fileQueue = projects.flatMap((project) =>
+            project.files.map((file) => ({
+              projectName: project.name,
+              file,
+            })),
+          );
+          const pdf = await renderMergedPdf({
+            fileQueue,
+            settings,
+            renderer,
+            theme,
+            highlighter,
+            fontCss,
+          });
+          const fileName = `${baseNameWithoutExtension(originalName)}.pdf`;
+
+          reply
+            .type('application/pdf')
+            .header('Content-Disposition', `attachment; filename="${fileName}"`);
+          return reply.send(pdf);
+        }
+
+        const zipName = `${baseNameWithoutExtension(originalName)}.zip`;
+        reply.type('application/zip').header('Content-Disposition', `attachment; filename="${zipName}"`);
+
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        archive.on('error', (error) => reply.raw.destroy(error));
+        reply.send(archive);
+
+        for (const project of projects) {
+          const fileQueue = project.files.map((file) => ({
             projectName: project.name,
             file,
-          })),
-        );
-        const pdf = await renderMergedPdf({
-          fileQueue,
-          settings,
-          renderer,
-          theme,
-          highlighter,
-          fontCss,
-        });
-        const fileName = `${baseNameWithoutExtension(originalName)}.pdf`;
+          }));
+          const pdf = await renderMergedPdf({
+            fileQueue,
+            settings,
+            renderer,
+            theme,
+            highlighter,
+            fontCss,
+          });
+          const pdfName = `${sanitizeFilename(project.name, 'project')}.pdf`;
+          archive.append(pdf, { name: pdfName });
+        }
 
-        reply
-          .type('application/pdf')
-          .header('Content-Disposition', `attachment; filename="${fileName}"`);
-        return reply.send(pdf);
+        await archive.finalize();
+        return reply;
+      } finally {
+        await renderer.close();
       }
-
-      const zipName = `${baseNameWithoutExtension(originalName)}.zip`;
-      reply.type('application/zip').header('Content-Disposition', `attachment; filename="${zipName}"`);
-
-      const archive = archiver('zip', { zlib: { level: 9 } });
-      archive.on('error', (error) => reply.raw.destroy(error));
-      reply.send(archive);
-
-      for (const project of projects) {
-        const fileQueue = project.files.map((file) => ({
-          projectName: project.name,
-          file,
-        }));
-        const pdf = await renderMergedPdf({
-          fileQueue,
-          settings,
-          renderer,
-          theme,
-          highlighter,
-          fontCss,
-        });
-        const pdfName = `${sanitizeFilename(project.name, 'project')}.pdf`;
-        archive.append(pdf, { name: pdfName });
-      }
-
-      await archive.finalize();
-      return reply;
     } finally {
-      await renderer.close();
+      await fs.rm(tempDir, { recursive: true, force: true });
     }
   } finally {
-    await fs.rm(tempDir, { recursive: true, force: true });
+    directRendersInFlight = Math.max(0, directRendersInFlight - 1);
+    startQueuedJobs();
   }
 });
 
 app.post('/api/render/start', async (request, reply) => {
+  startQueuedJobs();
+  if (!canAcceptQueuedRender()) {
+    throw new UserError('Server is busy. Try again in a moment.', 429);
+  }
+
   const parts = request.parts();
   let uploadInfo = null;
   let settingsPayload = null;
@@ -473,10 +530,15 @@ app.post('/api/render/start', async (request, reply) => {
   }
 
   const settings = parseSettings(settingsPayload);
-  const job = createJob();
+  if (!canAcceptQueuedRender()) {
+    await fs.rm(uploadInfo.tempDir, { recursive: true, force: true });
+    throw new UserError('Server is busy. Try again in a moment.', 429);
+  }
+
+  const job = createJob(uploadInfo, settings);
 
   reply.code(202).send({ jobId: job.id });
-  void runRenderJob(job, uploadInfo, settings);
+  startQueuedJobs();
 });
 
 app.get('/api/render/progress/:jobId', async (request, reply) => {
