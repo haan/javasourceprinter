@@ -6,6 +6,7 @@ Java Source Printer turns a zip full of Java projects into syntax-highlighted PD
 - Upload a zip containing multiple top-level project folders.
 - Configure the project folder level when the zip nests projects deeper.
 - Parse embedded `.umz` archives (created by Unimozer Next) inside the uploaded zip and include their `.java` files (one nesting level; nested `.umz` inside `.umz` are ignored).
+- Ignore hidden/macOS metadata files (for example entries under `__MACOSX` and files whose basename starts with `.`).
 - Overview grouped by project, sorted by project then file name.
 - Preview with adjustable font size, line height, color scheme, and font family.
 - Filters: remove JavaDoc, remove comments, collapse blank lines, hide initComponents(), hide main(), tabs to spaces.

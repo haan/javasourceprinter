@@ -593,6 +593,14 @@ async function parseZip(file, projectLevel = state.settings.projectLevel) {
   const projectMap = new Map();
   const level = Math.min(3, Math.max(1, Number(projectLevel) || 1));
 
+  function shouldIgnorePath(normalizedPath) {
+    const segments = normalizedPath.split('/').filter(Boolean);
+    if (segments.length === 0) return true;
+    if (segments.some((segment) => segment.toLowerCase() === '__macosx')) return true;
+    const fileName = segments[segments.length - 1];
+    return fileName.startsWith('.');
+  }
+
   function addJavaFile(projectName, filePath, content) {
     if (!projectMap.has(projectName)) {
       projectMap.set(projectName, []);
@@ -613,6 +621,7 @@ async function parseZip(file, projectLevel = state.settings.projectLevel) {
     if (entry.dir) continue;
     const normalizedPath = entry.name.replace(/\\/g, '/');
     if (normalizedPath.startsWith('/') || normalizedPath.includes('..')) continue;
+    if (shouldIgnorePath(normalizedPath)) continue;
 
     const segments = normalizedPath.split('/').filter(Boolean);
     if (segments.length < level + 1) continue;
@@ -642,6 +651,7 @@ async function parseZip(file, projectLevel = state.settings.projectLevel) {
       const nestedPath = nestedEntry.name.replace(/\\/g, '/');
       if (!nestedPath.toLowerCase().endsWith('.java')) continue;
       if (nestedPath.startsWith('/') || nestedPath.includes('..')) continue;
+      if (shouldIgnorePath(nestedPath)) continue;
 
       const content = await nestedEntry.async('text');
       const combinedPath = `${normalizedPath}/${nestedPath}`;

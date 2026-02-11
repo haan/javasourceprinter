@@ -177,6 +177,7 @@
               <li>Embedded <span class="font-medium">.umz</span> files are treated as zip containers and scanned for <span class="font-medium">.java</span> files.</li>
               <li>Java files found in a .umz appear with a nested path (for example <span class="font-mono">ProjectA/A.umz/src/Order.java</span>).</li>
               <li>Nested .umz files inside another .umz are ignored.</li>
+              <li>Hidden/macOS metadata files are ignored (for example entries under <span class="font-mono">__MACOSX</span> or files starting with <span class="font-mono">.</span>).</li>
               <li>Use the checkbox next to a file to exclude it from the generated PDFs.</li>
               <li>Non-Java files are ignored.</li>
             </ul>

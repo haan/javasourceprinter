@@ -24,6 +24,14 @@ export async function readJavaProjects(zipPath, config, projectLevel = 1) {
   let fileCount = 0;
   const level = Math.min(3, Math.max(1, Number.parseInt(projectLevel, 10) || 1));
 
+  function shouldIgnorePath(normalizedPath) {
+    const segments = normalizedPath.split('/').filter(Boolean);
+    if (segments.length === 0) return true;
+    if (segments.some((segment) => segment.toLowerCase() === '__macosx')) return true;
+    const fileName = segments[segments.length - 1];
+    return fileName.startsWith('.');
+  }
+
   function addJavaFile(projectName, filePath, content) {
     fileCount += 1;
     if (fileCount > config.maxFileCount) {
@@ -77,15 +85,16 @@ export async function readJavaProjects(zipPath, config, projectLevel = 1) {
     let nestedDirectory;
     try {
       nestedDirectory = await unzipper.Open.buffer(umzBuffer);
-  } catch (_error) {
-    return;
-  }
+    } catch (_error) {
+      return;
+    }
 
-  for (const nestedEntry of nestedDirectory.files) {
+    for (const nestedEntry of nestedDirectory.files) {
       if (nestedEntry.type !== 'File') continue;
       const nestedPath = nestedEntry.path.replace(/\\/g, '/');
       if (!nestedPath.toLowerCase().endsWith('.java')) continue;
       if (nestedPath.startsWith('/') || nestedPath.includes('..')) continue;
+      if (shouldIgnorePath(nestedPath)) continue;
 
       const combinedPath = `${normalizedPath}/${nestedPath}`;
       const entrySize = Number(nestedEntry.uncompressedSize);
@@ -107,6 +116,7 @@ export async function readJavaProjects(zipPath, config, projectLevel = 1) {
     if (entry.type !== 'File') continue;
     const normalizedPath = entry.path.replace(/\\/g, '/');
     if (normalizedPath.startsWith('/') || normalizedPath.includes('..')) continue;
+    if (shouldIgnorePath(normalizedPath)) continue;
 
     const segments = normalizedPath.split('/').filter(Boolean);
     if (segments.length < level + 1) continue;
