@@ -8,8 +8,10 @@ export class UserError extends Error {
 }
 
 export function sanitizeFilename(name, fallback = 'file') {
-  const base = path.basename(name || fallback);
-  const cleaned = base.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const base = path.basename(String(name || fallback)).normalize('NFC');
+  const cleaned = base
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
+    .replace(/[. ]+$/g, '');
   return cleaned || fallback;
 }
 
